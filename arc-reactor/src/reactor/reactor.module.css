@@ -62,6 +62,18 @@
 .hint[data-phase='charging'] { color: var(--color-arc); }
 .hint[data-phase='decaying'] { color: #ff7a6b; }
 
+.pinned {
+  position: absolute;
+  top: var(--space-6);
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-xs);
+  color: var(--color-arc-hot);
+  background: color-mix(in srgb, var(--color-void) 80%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-arc) 40%, transparent);
+  border-radius: var(--space-1);
+}
+.pinned code { font-family: var(--font-mono); }
+
 .meta {
   position: absolute;
   bottom: var(--space-6);

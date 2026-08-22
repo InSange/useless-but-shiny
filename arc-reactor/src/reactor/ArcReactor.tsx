@@ -200,6 +200,15 @@ export default function ArcReactor() {
         {phase === 'decaying' && '빠진다'}
       </p>
 
+      {/* 값이 고정돼 있으면 스크롤이 안 먹는다. 화면에 안 적어 두면
+          "왜 안 움직이지" 하고 한참 헤맨다 — 실제로 헤맸다. */}
+      {pin.current !== null && (
+        <p className={s.pinned}>
+          ⚠️ <code>?charge={pin.current}</code> 로 고정됨 — 스크롤이 안 먹는다.
+          주소에서 떼면 정상 동작.
+        </p>
+      )}
+
       <footer className={s.meta} aria-hidden="true">
         충전 {TUNING.chargeSeconds}s · 감쇠 {TUNING.decaySeconds}s
       </footer>
