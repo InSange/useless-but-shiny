@@ -45,7 +45,7 @@ function pinnedCharge(): number | null {
 
 export default function ArcReactor() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const pin = useRef(pinnedCharge())
+  const [pin] = useState(pinnedCharge)
   const pctRef = useRef<HTMLSpanElement>(null)
   const [glFailed, setGlFailed] = useState(false)
 
@@ -124,7 +124,7 @@ export default function ArcReactor() {
     /* oxlint-disable react/immutability */
     const f = frame.current
     f.time += dt
-    if (pin.current !== null) p = pin.current      // 튜닝용 고정값
+    if (pin !== null) p = pin      // 튜닝용 고정값
     f.charge = p
 
     if (f.time - colorAt.current > 0.5) {
@@ -202,9 +202,9 @@ export default function ArcReactor() {
 
       {/* 값이 고정돼 있으면 스크롤이 안 먹는다. 화면에 안 적어 두면
           "왜 안 움직이지" 하고 한참 헤맨다 — 실제로 헤맸다. */}
-      {pin.current !== null && (
+      {pin !== null && (
         <p className={s.pinned}>
-          ⚠️ <code>?charge={pin.current}</code> 로 고정됨 — 스크롤이 안 먹는다.
+          ⚠️ <code>?charge={pin}</code> 로 고정됨 — 스크롤이 안 먹는다.
           주소에서 떼면 정상 동작.
         </p>
       )}
