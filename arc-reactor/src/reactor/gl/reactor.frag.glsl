@@ -92,59 +92,84 @@ vec2 pModPolar(vec2 p, float n, float offset) {
   return vec2(cos(a), sin(a)) * r;
 }
 
+/* 부채꼴 조각 — 반지름 rIn~rOut, 반각 th, 두께 2*zh.
+   상자로 만들면 안팎 폭이 같아서 파이 조각이 안 된다.
+   실물의 빛 쐐기는 바깥으로 갈수록 넓어진다 — 그게 "톱니"와 "빛살"을 가른다.
+
+   q 는 pModPolar 로 접은 좌표(+x 가 부채꼴 중심). */
+float sdSector(vec2 q, float z, float rIn, float rOut, float th, float zc, float zh) {
+  float rd = abs(length(q) - (rIn + rOut) * 0.5) - (rOut - rIn) * 0.5;
+  float ad = dot(vec2(abs(q.y), -q.x), vec2(cos(th), sin(th)));
+  float zd = abs(z - zc) - zh;
+  vec3 w = vec3(rd, ad, zd);
+  return min(max(w.x, max(w.y, w.z)), 0.0) + length(max(w, 0.0));
+}
+
 vec2 opU(vec2 a, vec2 b) { return a.x < b.x ? a : b; }
 
 /* 12시에서 시계방향으로 잰 각도 (0 ~ TAU).
    충전이 어디까지 찼는지 판단하는 기준. */
 float clockAngle(vec2 p) { return mod(atan(p.x, p.y), TAU); }
 
+/* ── 실물 구조를 그대로 따랐다 (프롭 레플리카 정면 사진 여러 장 분석) ──
+
+   반지름 (바깥 = 1.0)          층
+     1.00 ~ 0.76   두꺼운 브러시드 금속 판   ← 실루엣을 "깨끗한 원"으로 만든다
+     0.78 ~ 0.72   안쪽 립
+     0.72 ~ 0.46   코일 10 (반각 7.5°) / 빛 쐐기 10 (반각 13°)
+     0.46 ~ 0.32   어두운 금속 링 + 작은 나사 8
+     0.32 ~ 0      스포크 휠 (가는 방사선 다수)
+     z = -2.6      뒷벽
+
+   기어처럼 보이던 이유: 코일이 바깥 판보다 튀어나와 있었고,
+   코일과 빛이 같은 폭이었다. 실물은 코일이 빛의 절반 폭이고
+   둘 다 바깥 판 **안쪽**에 갇혀 있다. */
 vec2 map(vec3 p) {
   vec2 res = vec2(1e9, -1.0);
 
   // 뒷벽 — 리액터 빛을 받는 면. 시차와 광량 감쇠가 여기서 보인다.
   res = opU(res, vec2(p.z + 2.6, 8.0));
 
-  // 뒤판
-  res = opU(res, vec2(sdDisc(p - vec3(0.0, 0.0, -0.12), 0.80, 0.055), 1.0));
+  // 뒤판 — 전체를 받친다
+  res = opU(res, vec2(sdDisc(p - vec3(0.0, 0.0, -0.17), 0.99, 0.05), 1.0));
 
-  // 금속 베젤
-  res = opU(res, vec2(sdAnnulus(p, 0.58, 0.77, 0.10), 1.0));
+  // 바깥 금속 판. 두껍고 평평하다 — 여기가 이 물건의 얼굴이다.
+  res = opU(res, vec2(sdAnnulus(p, 0.76, 1.00, 0.095), 1.0));
 
-  // 코일 블록 10개
+  // 판과 코일 사이의 안쪽 립
+  res = opU(res, vec2(sdAnnulus(p - vec3(0.0, 0.0, 0.02), 0.720, 0.780, 0.075), 6.0));
+
+  // 바깥 판에 박힌 볼트 8개
   {
-    vec2 q = pModPolar(p.xy, 10.0, 0.0);
-    res = opU(res, vec2(
-      sdRoundBox(vec3(q.x - 0.90, q.y, p.z), vec3(0.16, 0.105, 0.115), 0.028), 2.0));
+    vec2 q = pModPolar(p.xy, 8.0, 0.0);
+    res = opU(res, vec2(length(vec3(q.x - 0.885, q.y, p.z - 0.088)) - 0.033, 6.0));
   }
 
-  // 코일 사이로 새어 나오는 빛. 살짝 뒤로 넣어 코일이 가리게 한다.
+  // 빛 쐐기 10개 — 넓다. 바깥으로 갈수록 벌어진다.
   {
     vec2 q = pModPolar(p.xy, 10.0, PI / 10.0);
     res = opU(res, vec2(
-      sdRoundBox(vec3(q.x - 0.90, q.y, p.z + 0.035), vec3(0.165, 0.10, 0.075), 0.02), 3.0));
+      sdSector(q, p.z, 0.475, 0.712, radians(13.0), -0.020, 0.052) - 0.012, 3.0));
   }
 
-  // 볼트 8개
+  // 코일 10개 — 빛의 절반 폭. 좁아야 "코일"로 보인다.
   {
-    vec2 q = pModPolar(p.xy, 8.0, 0.0);
-    res = opU(res, vec2(length(vec3(q.x - 0.68, q.y, p.z - 0.10)) - 0.038, 6.0));
-  }
-
-  // 눈금 게이지 — 살짝 파묻어 그림자가 지게
-  res = opU(res, vec2(sdAnnulus(p - vec3(0.0, 0.0, -0.03), 0.40, 0.56, 0.045), 4.0));
-
-  // 안쪽 링
-  res = opU(res, vec2(sdAnnulus(p, 0.32, 0.37, 0.06), 5.0));
-
-  // 방사형 지지대 4개
-  {
-    vec2 q = pModPolar(p.xy, 4.0, 0.0);
+    vec2 q = pModPolar(p.xy, 10.0, 0.0);
     res = opU(res, vec2(
-      sdRoundBox(vec3(q.x - 0.37, q.y, p.z - 0.02), vec3(0.10, 0.035, 0.055), 0.015), 6.0));
+      sdSector(q, p.z, 0.465, 0.715, radians(7.5), 0.005, 0.082) - 0.018, 2.0));
   }
 
-  // 플라즈마 코어
-  res = opU(res, vec2(sdDisc(p - vec3(0.0, 0.0, 0.02), 0.285, 0.055), 7.0));
+  // 어두운 금속 링 + 눈금
+  res = opU(res, vec2(sdAnnulus(p - vec3(0.0, 0.0, -0.015), 0.325, 0.460, 0.062), 4.0));
+
+  // 링에 박힌 작은 나사 8개
+  {
+    vec2 q = pModPolar(p.xy, 8.0, PI / 8.0);
+    res = opU(res, vec2(length(vec3(q.x - 0.392, q.y, p.z - 0.052)) - 0.021, 6.0));
+  }
+
+  // 스포크 휠 코어
+  res = opU(res, vec2(sdDisc(p - vec3(0.0, 0.0, 0.005), 0.318, 0.048), 7.0));
 
   return res;
 }
@@ -172,6 +197,11 @@ vec3 env(vec3 d) {
      이게 없으면 금속이 비출 게 없어서 흠집도 얼룩도 안 보인다.
      좁은 로브만으로는 딱 그 자리에서만 반짝이고 나머지는 새까맣다. */
   c += vec3(0.92, 0.95, 1.00) * smoothstep(0.30, 0.92, d.y) * 0.55;
+
+  /* 카메라 쪽 방 — 정면을 향한 평평한 금속이 반사할 대상.
+     이게 없으면 바깥 판처럼 화면을 정면으로 보는 면이 전부 새까맣게 나온다.
+     실제 스튜디오에서 피사체 앞에 흰 반사판을 두는 것과 같은 역할. */
+  c += vec3(0.42, 0.46, 0.55) * pow(max(d.z, 0.0), 2.0) * 0.60;
 
   // 키 라이트 — 왼쪽 위, 좁고 강하게
   c += vec3(1.00, 0.97, 0.92) * pow(max(dot(d, normalize(vec3(-0.55, 0.75, 0.38))), 0.0), 26.0) * 1.5;
@@ -245,13 +275,13 @@ vec3 shade(vec3 p, vec3 n, vec3 rd, float m) {
 
   float ang = clockAngle(p.xy);
 
-  if (m < 1.5) {                       // 하우징 — 어두운 강철 + 선반 자국
-    albedo = vec3(0.30, 0.29, 0.28);
+  if (m < 1.5) {                       // 바깥 브러시드 알루미늄 판
+    albedo = vec3(0.62, 0.62, 0.63);   // 검은 강철이 아니라 밝은 알루미늄이다
     float rr = length(p.xy);
-    float grooves = 0.5 + 0.5 * sin(rr * 96.0);
-    rough = mix(0.26, 0.44, grooves);
-    albedo *= 0.86 + 0.14 * grooves;
-    n = brushed(p, n, 0.05);
+    float grooves = 0.5 + 0.5 * sin(rr * 110.0);
+    rough = mix(0.30, 0.46, grooves);
+    albedo *= 0.90 + 0.10 * grooves;
+    n = brushed(p, n, 0.07);
     grime(p, n, rough, albedo);
 
   } else if (m < 2.5) {                // 코일 — 따뜻한 금속 + 감긴 자국
@@ -277,18 +307,21 @@ vec3 shade(vec3 p, vec3 n, vec3 rd, float m) {
     float ignite = exp(-max(t, 0.0) * 7.0) * step(0.0, t) * uRising;
     emis += mix(uArc, uArcHot, 0.7) * ignite * 2.6;
 
-  } else if (m < 4.5) {                // 눈금 게이지
-    float ticks = step(0.16, fract(ang / (TAU / 48.0)));
-    float filled = step(ang, uCharge * TAU);
-    // 채워진 구간 위를 도는 반짝임
+  } else if (m < 4.5) {                // 어두운 금속 링 — 실물엔 여기 잔 디테일이 많다
+    float tf = fract(ang / (TAU / 72.0));
+    float ticks = smoothstep(0.30, 0.40, tf) * smoothstep(0.78, 0.68, tf);
+    float filled = smoothstep(-0.02, 0.02, uCharge * TAU - ang);
     float sweep = pow(max(cos(ang - uSpin), 0.0), 22.0) * filled;
-    albedo = vec3(0.03, 0.05, 0.07);
-    rough = 0.3;
-    metal = 0.0;
-    emis = uArc * (0.025 + filled * 0.85 * ticks) + uArcHot * sweep * 1.1 * ticks;
-    // 차오르는 선두를 밝게
-    float head = smoothstep(0.10, 0.0, abs(ang - uCharge * TAU));
-    emis += uArcHot * head * 1.8 * step(0.02, uCharge);
+
+    albedo = vec3(0.22, 0.22, 0.24);
+    rough = 0.32;
+    metal = 1.0;
+    grime(p, n, rough, albedo);
+
+    // 눈금이 차오른다. 주인공은 쐐기와 스포크 휠이라 여기는 은근하게.
+    emis = uArc * ticks * (0.03 + filled * 0.55) + uArcHot * sweep * ticks * 0.8;
+    emis += uArcHot * smoothstep(0.045, 0.0, abs(ang - uCharge * TAU))
+          * 1.1 * step(0.02, uCharge);
 
   } else if (m < 5.5) {                // 안쪽 링 — 충전될수록 금속에서 발광체로
     albedo = mix(vec3(0.20, 0.19, 0.18), uArc * 0.3, uCharge);
@@ -301,29 +334,27 @@ vec3 shade(vec3 p, vec3 n, vec3 rd, float m) {
     rough = 0.22;
     grime(p, n, rough, albedo);
 
-  } else if (m < 7.5) {                // 플라즈마 코어
-    float r = length(p.xy) / 0.285;
-    float a = clockAngle(p.xy);
+  } else if (m < 7.5) {                // 스포크 휠 — 실물의 터빈 같은 무늬
+    float rn = length(p.xy) / 0.318;
 
-    // 채움 반지름이 자란다 — CSS 때 색 정지점을 밀던 것과 같은 원리
-    float fill = smoothstep(uCharge, uCharge - 0.12, r);
+    /* 가는 방사선 60개. 매끈한 빛 덩어리로 두면 "빛나는 공"이지
+       기계 부품이 아니다. 실물은 여기가 제일 촘촘하다. */
+    float spokes = smoothstep(0.86, 1.0, abs(cos(ang * 30.0)));
+    spokes *= smoothstep(0.14, 0.30, rn);            // 중심 근처는 스포크가 없다
+    float rings = smoothstep(0.78, 1.0, abs(sin(rn * 18.0 - uTime * 0.7)));
+    float hub   = smoothstep(0.17, 0.0, rn);
 
-    // 안에서 바깥으로 밀려 나가는 동심 플라즈마 띠
-    float rings = 0.5 + 0.5 * sin(r * 30.0 - uTime * 2.2 - uCharge * 5.0);
-    rings = pow(rings, 3.0);
-    // 방사형 필라멘트
-    float fil = pow(0.5 + 0.5 * sin(a * 12.0 + uTime * 0.7), 4.0);
-
-    float hot = smoothstep(0.42, 0.0, r);
+    /* 여기는 진행률을 "시계방향으로" 표시하지 않는다.
+       반쪽만 켜면 파이 차트로 보이고, 실물은 중심이 늘 고르게 빛난다.
+       진행률은 쐐기 10칸과 눈금 링이 맡고, 스포크 휠은 세기만 따라간다. */
     albedo = vec3(0.02);
-    rough = 0.08;
+    rough = 0.10;
     metal = 0.0;
-    emis = mix(uArc * (0.45 + rings * 0.5 + fil * 0.22), uArcHot * 2.3, hot)
-         * fill * (1.0 + uPulse * 0.10);
-    // 차오르는 경계선 — "지금 여기까지 찼다"가 보여야 한다
-    emis += uArcHot * smoothstep(0.07, 0.0, abs(r - uCharge)) * 1.5 * step(0.03, uCharge);
-    emis += uArc * 0.04;
-    // 완료 순간 코어가 한 번 과열됐다가 가라앉는다
+
+    vec3 on = uArc * (0.18 + spokes * 1.6 + rings * 0.40);
+    emis = on * (0.06 + uCharge * 0.94) * (1.0 + uPulse * 0.08);
+    emis += mix(uArc, uArcHot, 0.8) * hub * (0.25 + uCharge * 2.4);
+    // 완료 순간 한 번 과열됐다가 가라앉는다
     emis += uArcHot * exp(-uComplete * 4.0) * step(0.001, uComplete) * 2.2;
 
   } else {                             // 뒷벽 — 리액터 빛을 받는다
@@ -331,9 +362,9 @@ vec3 shade(vec3 p, vec3 n, vec3 rd, float m) {
     float line = 1.0 - smoothstep(0.0, 0.022, min(g.x, g.y));
     vec3 L = -p;                                  // 코어는 원점에 있다
     float dist = length(L);
-    float atten = 1.0 / (1.0 + dist * dist * 0.42);
+    float atten = 1.0 / (1.0 + dist * dist * 0.20);
     float ndl = max(dot(n, normalize(L)), 0.0);
-    vec3 c = vec3(0.004, 0.006, 0.010) + uArc * line * 0.03;
+    vec3 c = vec3(0.011, 0.014, 0.021) + uArc * line * 0.06;
     c += uArc * uCharge * (ndl * 0.75 + line * 0.55) * atten;
     return c;
   }
@@ -362,7 +393,7 @@ void main() {
   vec2 uv = (gl_FragCoord.xy - 0.5 * uRes) / min(uRes.x, uRes.y);
 
   // 카메라. 흔들림을 카메라 자체에 주면 앞뒤가 다르게 밀린다(진짜 시차).
-  vec3 ro = vec3(0.0, 0.0, 4.95);
+  vec3 ro = vec3(0.0, 0.0, 5.15);
   vec3 ta = vec3(0.0);
   ro.yz *= rot(-uTilt.y * 0.22);
   ro.xz *= rot( uTilt.x * 0.30);
@@ -422,8 +453,9 @@ void main() {
 
   col = tonemap(col * 1.05);
 
-  // 비네트
-  col *= 1.0 - 0.38 * pow(length(uv * vec2(0.85, 1.0)), 2.2);
+  /* 비네트. 세게 걸면 모서리가 통째로 죽어서 "동그란 창으로 보는" 꼴이 된다.
+     화면 밖으로 자연스럽게 어두워지는 정도면 충분하다. */
+  col *= 1.0 - 0.20 * pow(length(uv * vec2(0.62, 0.95)), 2.0);
 
   // 디더 — 어두운 그라디언트의 띠 무늬(밴딩)를 깬다
   col += (hash21(gl_FragCoord.xy + uTime) - 0.5) / 255.0;
