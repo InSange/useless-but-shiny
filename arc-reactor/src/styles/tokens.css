@@ -1,0 +1,54 @@
+/* ============================================================
+   디자인 토큰.
+
+   간격 눈금은 ui-lab 챕터 0에서 실측으로 정한 것을 그대로 가져왔다.
+   (github.com · docs.stripe.com · linear.app 전수 조사, 2026-08-21)
+   한 칸 = 4px. 이름의 숫자 = 4px 몇 칸인가.
+   ============================================================ */
+
+:root {
+  /* --- 간격 눈금 (4px 한 칸) --- */
+  --space-1:    4px;
+  --space-2:    8px;   /* 기본값 */
+  --space-3:   12px;
+  --space-4:   16px;
+  --space-6:   24px;
+  --space-8:   32px;
+  --space-12:  48px;
+  --space-16:  64px;
+  --space-32: 128px;
+
+  /* --- 글자 --- */
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-md: 16px;
+  --text-lg: 20px;
+  --text-2xl: 30px;
+
+  --leading-tight: 1.2;
+  --leading-snug: 1.4;
+
+  --weight-normal: 400;
+  --weight-medium: 500;
+
+  --tracking-wide: 0.18em;   /* 이 화면은 자간을 넓게 쓴다 — HUD 인상 */
+
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  --font-sans: system-ui, -apple-system, "Pretendard", "Noto Sans KR", sans-serif;
+
+  /* --- 색: 역할로만 --- */
+  --color-void:      #04060a;   /* 제일 뒤 바닥 */
+  --color-panel:     #0d1620;   /* 뒤에 떠 있는 판 */
+  --color-grid:      #1b3348;   /* 격자선 */
+  --color-arc:       #5ec8ff;   /* 리액터 빛 — 이 화면의 주인공 */
+  --color-arc-hot:   #e8fbff;   /* 최대 충전 시 코어 */
+  --color-arc-dim:   #16283a;   /* 아직 안 찬 링 */
+  --color-text:      #9fb8cc;
+  --color-text-dim:  #46606f;
+
+  /* --- 움직임 --- */
+  --duration-fast: 120ms;
+  --duration-base: 320ms;
+  --duration-slow: 900ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}

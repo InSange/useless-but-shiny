@@ -1,0 +1,19 @@
+*, *::before, *::after { box-sizing: border-box; }
+* { margin: 0; }
+
+html, body, #root { height: 100%; }
+
+body {
+  background: var(--color-void);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
+  line-height: var(--leading-snug);
+  -webkit-font-smoothing: antialiased;
+
+  /* 이 페이지는 스크롤되지 않는다. 휠은 "연료"로만 쓴다. */
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+button { font: inherit; color: inherit; }

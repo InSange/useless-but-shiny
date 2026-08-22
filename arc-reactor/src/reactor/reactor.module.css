@@ -1,0 +1,234 @@
+/* ============================================================
+   아크 리액터 — 화면.
+
+   진행률은 --p (0~1) 하나로 들어온다. 매 프레임 JS가 .scene에 쓴다.
+   여기 있는 모든 연출은 그 --p 하나에서 파생된다.
+   흔들림도 --shake-x/y/r 로 들어온다.
+   ============================================================ */
+
+/* --p 를 "숫자"로 등록해 둔다. 이러면 calc 안에서 안전하게 곱할 수 있고
+   브라우저가 보간(transition)도 할 수 있다. */
+@property --p {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+.scene {
+  --p: 0;
+  --shake-x: 0px;
+  --shake-y: 0px;
+  --shake-r: 0deg;
+
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 100%;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 80% at 50% 50%,
+      color-mix(in srgb, var(--color-arc) calc(var(--p) * 7%), transparent) 0%,
+      transparent 60%),
+    var(--color-void);
+  cursor: ns-resize;   /* "위아래로 굴려라"를 커서로 알린다 */
+}
+
+/* ---------- 뒤에서 흔들리는 것들 ---------- */
+
+.backdrop {
+  position: absolute;
+  inset: -6%;                  /* 흔들려도 가장자리가 안 드러나게 여유를 준다 */
+  pointer-events: none;
+
+  /* 이 한 줄이 "카메라 셰이킹"의 전부다. */
+  transform: translate3d(var(--shake-x), var(--shake-y), 0) rotate(var(--shake-r));
+
+  /* 차오를수록 뒤가 밝아진다 */
+  opacity: calc(0.28 + var(--p) * 0.72);
+  filter: brightness(calc(1 + var(--p) * 0.9)) saturate(calc(1 + var(--p) * 0.6));
+}
+
+.grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(to right,  var(--color-grid) 0 1px, transparent 1px 64px),
+    repeating-linear-gradient(to bottom, var(--color-grid) 0 1px, transparent 1px 64px);
+  /* 가운데는 비우고 가장자리로 갈수록 진하게 — 리액터가 묻히지 않게 */
+  mask: radial-gradient(closest-side, transparent 25%, #000 85%);
+  opacity: 0.5;
+}
+
+.panels { position: absolute; inset: 0; }
+
+.panel {
+  position: absolute;
+  border: 1px solid var(--color-grid);
+  background: color-mix(in srgb, var(--color-panel) 70%, transparent);
+  box-shadow: inset 0 0 var(--space-8)
+    color-mix(in srgb, var(--color-arc) calc(var(--p) * 18%), transparent);
+}
+
+.panel:nth-child(1) { left:  6%; top: 12%; width: 18%; height: 22%; }
+.panel:nth-child(2) { left:  3%; top: 44%; width: 12%; height: 34%; }
+.panel:nth-child(3) { left: 18%; top: 72%; width: 22%; height: 14%; }
+.panel:nth-child(4) { right: 5%; top: 10%; width: 20%; height: 18%; }
+.panel:nth-child(5) { right: 2%; top: 38%; width: 14%; height: 30%; }
+.panel:nth-child(6) { right:12%; top: 76%; width: 24%; height: 12%; }
+.panel:nth-child(7) { left: 40%; top:  4%; width: 20%; height: 10%; }
+
+.bloom {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(closest-side,
+    color-mix(in srgb, var(--color-arc) 55%, transparent) 0%,
+    transparent 70%);
+  /* 차오를수록 넓게 퍼지고 진해진다 */
+  transform: scale(calc(0.3 + var(--p) * 0.9));
+  opacity: calc(var(--p) * var(--p));
+}
+
+/* ---------- 리액터 — 여기만 안 흔들린다 ---------- */
+
+.reactor {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: min(46vmin, 320px);
+  aspect-ratio: 1;
+}
+
+.reactor > * { grid-area: 1 / 1; }
+
+/* 시계방향 채움. conic-gradient 를 원판에 깔고 가운데를 뚫어 링으로 만든다.
+   from -90deg 라서 12시에서 시작한다. */
+.ring {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: conic-gradient(
+    from -90deg,
+    var(--color-arc) calc(var(--p) * 360deg),
+    var(--color-arc-dim) 0
+  );
+  mask: radial-gradient(closest-side, transparent 71%, #000 72%);
+}
+
+.ringGlow {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  box-shadow:
+    0 0 var(--space-8) color-mix(in srgb, var(--color-arc) 60%, transparent),
+    inset 0 0 var(--space-6) color-mix(in srgb, var(--color-arc) 45%, transparent);
+  opacity: calc(var(--p) * 0.9);
+}
+
+.core {
+  width: 44%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(closest-side,
+    color-mix(in srgb, var(--color-arc-hot) calc(var(--p) * 100%), var(--color-arc)) 0%,
+    var(--color-arc) 55%,
+    transparent 78%);
+  transform: scale(calc(0.55 + var(--p) * 0.45));
+  opacity: calc(0.25 + var(--p) * 0.75);
+  filter: blur(calc((1 - var(--p)) * 3px));
+}
+
+.readout {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xl);
+  color: var(--color-text);
+  text-shadow: 0 0 var(--space-3)
+    color-mix(in srgb, var(--color-arc) calc(var(--p) * 90%), transparent);
+}
+
+.pct { font-variant-numeric: tabular-nums; white-space: pre; }
+.pctUnit { font-size: var(--text-sm); color: var(--color-text-dim); }
+
+/* ---------- 100% ---------- */
+
+.done {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: var(--space-8);
+  background: color-mix(in srgb, var(--color-void) 72%, transparent);
+  backdrop-filter: blur(2px);
+  animation: fadeIn var(--duration-base) var(--ease-out) both;
+}
+
+.helloSvg { width: min(80vw, 720px); overflow: visible; }
+
+.helloText {
+  font-family: var(--font-mono);
+  font-size: 96px;
+  letter-spacing: var(--tracking-wide);
+  text-anchor: middle;
+
+  fill: var(--color-arc-hot);
+  fill-opacity: 0;
+  stroke: var(--color-arc);
+  stroke-width: 1.25;
+  stroke-dasharray: 1400;
+  stroke-dashoffset: 1400;
+
+  filter: drop-shadow(0 0 12px color-mix(in srgb, var(--color-arc) 70%, transparent));
+  animation:
+    draw var(--duration-slow) var(--ease-out) forwards,
+    fillIn var(--duration-base) 700ms forwards;
+}
+
+@keyframes draw   { to { stroke-dashoffset: 0; } }
+@keyframes fillIn { to { fill-opacity: 1; } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.again {
+  padding: var(--space-2) var(--space-6);
+  font-size: var(--text-sm);
+  letter-spacing: var(--tracking-wide);
+  color: var(--color-arc);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--color-arc) 45%, transparent);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+.again:hover { background: color-mix(in srgb, var(--color-arc) 12%, transparent); }
+.again:focus-visible { outline: 2px solid var(--color-arc); outline-offset: 3px; }
+
+/* ---------- 안내 문구 ---------- */
+
+.hint {
+  position: absolute;
+  bottom: var(--space-16);
+  font-size: var(--text-sm);
+  letter-spacing: var(--tracking-wide);
+  color: var(--color-text-dim);
+  transition: color var(--duration-base) var(--ease-out);
+}
+.hint[data-phase='charging'] { color: var(--color-arc); }
+.hint[data-phase='decaying'] { color: #ff7a6b; }
+
+.meta {
+  position: absolute;
+  bottom: var(--space-6);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-dim);
+}
+
+/* ---------- 흔들림을 못 견디는 사람 ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  /* 흔들림 자체는 JS에서 이미 0으로 만든다. 여기서는 나머지를 줄인다. */
+  .helloText { animation: fillIn 1ms forwards; stroke-dashoffset: 0; }
+  .done { animation: none; }
+}
