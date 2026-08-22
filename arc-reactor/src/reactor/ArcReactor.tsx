@@ -1,38 +1,41 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import s from './reactor.module.css'
 import { useCharge, TUNING, type Phase } from './useCharge'
+import { createRenderer, type Frame } from './gl/renderer'
 
 /* 손으로 맞추는 연출 상수. */
 const MOTION = {
-  /** 최대 충전일 때 배경이 흔들리는 최대 진폭(px) */
-  maxShakePx: 20,
-  /** 최대 회전 흔들림(deg) */
-  maxShakeDeg: 0.7,
-  /** 리액터는 배경보다 덜 흔들린다 — 원근감이 생겨 "카메라가 흔들린다"로 읽힌다 */
-  reactorShakeRatio: 0.35,
-  /** 링 위를 도는 반짝임의 각속도(도/초). p에 따라 빨라진다 */
-  spinBaseDegPerSec: 22,
-  spinBoostDegPerSec: 130,
+  /** 최대 충전일 때 카메라가 흔들리는 최대 진폭(px 환산) */
+  maxShakePx: 22,
+  /** 게이지 위를 도는 반짝임의 각속도(도/초). p에 따라 빨라진다 */
+  spinBaseDegPerSec: 26,
+  spinBoostDegPerSec: 150,
   /** 맥동(숨쉬기) 주파수(Hz). p에 따라 빨라진다 */
   pulseBaseHz: 0.7,
   pulseBoostHz: 2.6,
+  /** 마우스 시점이 목표를 따라가는 속도 (1/초). 낮을수록 물렁하다 */
+  tiltFollow: 5.0,
 }
 
-/** 코일 블록(= 빛 쐐기) 개수. 참고 이미지가 10개였다. */
-const COILS = 10
-/** 베젤에 박힌 볼트 개수 */
-const BOLTS = 8
-/** 코어를 받치는 방사형 지지대 개수 */
-const STRUTS = 4
+/* 튜닝용 — 주소에 ?charge=0.55 를 붙이면 그 값으로 고정된다.
+   연출을 손볼 때 8초씩 굴리고 있을 수는 없다. 개발 모드에서만 동작. */
+function pinnedCharge(): number | null {
+  if (!import.meta.env.DEV) return null
+  const v = new URLSearchParams(window.location.search).get('charge')
+  if (v === null) return null
+  const n = Number(v)
+  return Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : null
+}
 
 export default function ArcReactor() {
-  const sceneRef = useRef<HTMLDivElement>(null)
-  const reactorRef = useRef<HTMLDivElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const pin = useRef(pinnedCharge())
   const pctRef = useRef<HTMLSpanElement>(null)
+  const [glFailed, setGlFailed] = useState(false)
 
   /* 흔들림을 끌지 말지. 전정기관 문제가 있는 사람에게 화면 흔들림은
      실제로 어지럼증을 일으킨다. OS 설정을 존중한다.
-     ⚠️ macOS: 손쉬운 사용 → 디스플레이 → "동작 줄이기"가 켜져 있으면 여기서 꺼진다. */
+     ⚠️ macOS: 손쉬운 사용 → 디스플레이 → "동작 줄이기" */
   const reduceMotion = useRef(false)
   useEffect(() => {
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -42,47 +45,81 @@ export default function ArcReactor() {
     return () => mq.removeEventListener('change', sync)
   }, [])
 
-  /* 프레임마다 누적되는 값들. p 와 마찬가지로 state 가 아니다. */
-  const spinRef = useRef(0)   // 링을 도는 반짝임의 현재 각도(deg)
-  const timeRef = useRef(0)   // 맥동용 누적 시간(s)
+  /* 마우스 시점. 목표값만 기록하고, 실제 값은 루프에서 천천히 따라간다.
+     바로 반영하면 뻣뻣하고, 따라가게 하면 무게가 생긴다. */
+  const tiltTarget = useRef({ x: 0, y: 0 })
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      tiltTarget.current.x = (e.clientX / window.innerWidth) * 2 - 1
+      tiltTarget.current.y = (e.clientY / window.innerHeight) * 2 - 1
+    }
+    window.addEventListener('pointermove', onMove)
+    return () => window.removeEventListener('pointermove', onMove)
+  }, [])
+
+  /* WebGL 렌더러. 캔버스 하나에 셰이더 하나. */
+  const glRef = useRef<ReturnType<typeof createRenderer>>(null)
+  useEffect(() => {
+    if (!canvasRef.current) return
+    const r = createRenderer(canvasRef.current)
+    if (!r) { setGlFailed(true); return }
+    glRef.current = r
+
+    /* 첫 프레임 전에 화면이 비지 않게 한 번 그려 둔다.
+       (탭이 백그라운드면 rAF 가 아예 안 돌기 때문에도 필요하다) */
+    r.render({ time: 0, charge: 0, pulse: 0, spin: 0,
+               shakeX: 0, shakeY: 0, tiltX: 0, tiltY: 0 })
+
+    /* 개발 중 값 고정해 보기용 손잡이. 빌드에서는 빠진다.
+       콘솔에서: __reactor.frame.charge = 0.6; __reactor.draw() */
+    if (import.meta.env.DEV) {
+      ;(window as unknown as Record<string, unknown>).__reactor = {
+        set: (o: Partial<Frame>) => Object.assign(frame.current, o),
+        draw: () => r.render(frame.current),
+        setScale: r.setScale,
+      }
+    }
+
+    return () => { r.dispose(); glRef.current = null }
+  }, [])
+
+  /* 프레임마다 누적되는 값들. state 가 아니다. */
+  const frame = useRef<Frame>({
+    time: 0, charge: 0, pulse: 0, spin: 0,
+    shakeX: 0, shakeY: 0, tiltX: 0, tiltY: 0,
+  })
 
   const { phase, reset } = useCharge((p, _ph, dt) => {
-    const scene = sceneRef.current
-    const reactor = reactorRef.current
-    if (!scene || !reactor) return
+    /* 이 아래는 초당 60번 도는 시뮬레이션이다. 값을 갈아끼우는 게 목적이라
+       일부러 객체를 제자리에서 고친다 — 새 객체를 만들면 프레임마다 쓰레기가 쌓인다.
+       린터는 "이펙트에서 쓰는 값을 고치지 마라"고 경고하는데, 그 규칙은
+       렌더의 순수성을 지키려는 것이고 여기는 렌더 밖(rAF 콜백)이라 해당 없다. */
+    /* oxlint-disable react/immutability */
+    const f = frame.current
+    f.time += dt
+    if (pin.current !== null) p = pin.current      // 튜닝용 고정값
+    f.charge = p
 
-    /* --- 흔들림 ---
-       예전엔 trauma = p² 였는데, 그러면 60%까지 진폭이 5px도 안 돼서
-       "안 흔들린다"로 느껴진다. 선형 성분을 섞어 초반부터 느껴지게 한다. */
+    /* 흔들림. trauma = p² 로 하면 60%까지 진폭이 5px도 안 돼서
+       "안 흔들린다"로 느껴진다. 선형 성분을 섞어 초반부터 느껴지게. */
     const trauma = 0.35 * p + 0.65 * p * p
     const amp = reduceMotion.current ? 0 : trauma * MOTION.maxShakePx
-    const rot = reduceMotion.current ? 0 : trauma * MOTION.maxShakeDeg
+    f.shakeX = (Math.random() * 2 - 1) * amp
+    f.shakeY = (Math.random() * 2 - 1) * amp
 
-    /* 카메라 셰이크는 매 프레임 무작위가 맞다. 게임에서도 그렇게 한다. */
-    const sx = (Math.random() * 2 - 1) * amp
-    const sy = (Math.random() * 2 - 1) * amp
-    const sr = (Math.random() * 2 - 1) * rot
+    /* 회전·맥동은 각도를 직접 누적한다. CSS animation 으로 하면
+       속도를 바꿀 때 튄다. (게임 루프와 같은 이유) */
+    f.spin += ((MOTION.spinBaseDegPerSec + p * MOTION.spinBoostDegPerSec) * Math.PI / 180) * dt
+    f.spin %= Math.PI * 2
+    f.pulse = Math.sin(f.time * (MOTION.pulseBaseHz + p * MOTION.pulseBoostHz) * Math.PI * 2)
 
-    /* --- 회전·맥동 누적 ---
-       CSS animation 으로 하면 속도를 바꿀 때 튄다. 각도를 직접 누적하면
-       속도가 매 프레임 부드럽게 변한다. (게임 루프와 같은 이유) */
-    spinRef.current =
-      (spinRef.current + (MOTION.spinBaseDegPerSec + p * MOTION.spinBoostDegPerSec) * dt) % 360
-    timeRef.current += dt * (MOTION.pulseBaseHz + p * MOTION.pulseBoostHz)
-    const pulse = Math.sin(timeRef.current * Math.PI * 2)   // -1 ~ 1
+    /* 지수 감쇠로 목표를 따라간다 — 프레임 레이트가 흔들려도 같은 속도. */
+    const k = 1 - Math.exp(-MOTION.tiltFollow * dt)
+    f.tiltX += (tiltTarget.current.x - f.tiltX) * k
+    f.tiltY += (tiltTarget.current.y - f.tiltY) * k
 
-    scene.style.setProperty('--p', p.toFixed(4))
-    scene.style.setProperty('--spin', `${spinRef.current.toFixed(1)}deg`)
-    scene.style.setProperty('--pulse', pulse.toFixed(3))
-    scene.style.setProperty('--shake-x', `${sx.toFixed(2)}px`)
-    scene.style.setProperty('--shake-y', `${sy.toFixed(2)}px`)
-    scene.style.setProperty('--shake-r', `${sr.toFixed(3)}deg`)
-
-    /* 리액터는 배경의 35%만 흔들린다 — 앞뒤 깊이가 생긴다 */
-    const k = MOTION.reactorShakeRatio
-    reactor.style.setProperty('--shake-x', `${(sx * k).toFixed(2)}px`)
-    reactor.style.setProperty('--shake-y', `${(sy * k).toFixed(2)}px`)
-    reactor.style.setProperty('--shake-r', `${(sr * k).toFixed(3)}deg`)
+    glRef.current?.render(f)
+    /* oxlint-enable react/immutability */
 
     if (pctRef.current) {
       pctRef.current.textContent = String(Math.round(p * 100)).padStart(3, ' ')
@@ -90,76 +127,19 @@ export default function ArcReactor() {
   })
 
   return (
-    <div ref={sceneRef} className={s.scene} data-phase={phase}>
-      {/* 뒤에서 흔들리고 밝아지는 것들 */}
-      <div className={s.backdrop} aria-hidden="true">
-        <div className={s.grid} />
-        <div className={s.panels}>
-          {Array.from({ length: 7 }, (_, i) => <span key={i} className={s.panel} />)}
-        </div>
-        <div className={s.bloom} />
-      </div>
+    <div className={s.scene} data-phase={phase}>
+      <canvas ref={canvasRef} className={s.canvas} aria-hidden="true" />
 
-      {/* ── 리액터 ──────────────────────────────────────────
-          바깥에서 안으로 층을 쌓는다. 실제 아크 리액터 구조를 따랐다:
-            코일 블록 → 그 사이의 빛 쐐기 → 베젤 → 눈금 게이지
-            → 동심원 → 방사형 지지대 → 플라즈마 코어
-          빛이 "코일 사이"로 새어 나오는 게 핵심이라, 쐐기 10개를
-          시계방향으로 하나씩 켜서 충전을 보여준다. */}
-      <div ref={reactorRef} className={s.reactor}>
+      {glFailed && (
+        <p className={s.fallback}>
+          이 브라우저에서 WebGL을 못 켰다.<br />
+          하드웨어 가속을 켜거나 다른 브라우저에서 열어 봐라.
+        </p>
+      )}
 
-        {/* 1. 코일 사이로 새어 나오는 빛 — i번째는 p가 i/10을 넘을 때 켜진다 */}
-        <div className={s.wedges}>
-          {Array.from({ length: COILS }, (_, i) => (
-            <span key={i} className={s.wedge} style={{ '--i': i } as React.CSSProperties} />
-          ))}
-        </div>
-
-        {/* 2. 금속 코일 블록 */}
-        <div className={s.coils}>
-          {Array.from({ length: COILS }, (_, i) => (
-            <span key={i} className={s.coil} style={{ '--i': i } as React.CSSProperties} />
-          ))}
-        </div>
-
-        {/* 3. 금속 베젤 + 볼트 */}
-        <div className={s.bezel} />
-        <div className={s.bolts}>
-          {Array.from({ length: BOLTS }, (_, i) => (
-            <span key={i} className={s.bolt} style={{ '--i': i } as React.CSSProperties} />
-          ))}
-        </div>
-
-        {/* 4. 눈금 게이지 — 진행률을 정확히 읽는 층 */}
-        <div className={s.gaugeTrack} />
-        <div className={s.gauge} />
-        <div className={s.gaugeTicks} />
-        <div className={s.gaugeSweep} />
-        <div className={s.gaugeHead} />
-
-        {/* 5. 얇은 동심원 + 방사형 지지대 */}
-        <div className={s.innerRing} />
-        <div className={s.struts}>
-          {Array.from({ length: STRUTS }, (_, i) => (
-            <span key={i} className={s.strut} style={{ '--i': i } as React.CSSProperties} />
-          ))}
-        </div>
-
-        {/* 6. 플라즈마 코어 — 원형으로 차오른다 */}
-        <div className={s.coreTrack} />
-        <div className={s.core} />
-        <div className={s.coreEdge} />
-        <div className={s.coreFlare} />
-
-        {/* 7. 유리 반사 — 맨 위에 얇게 덮어 "덮개 아래"로 보이게 */}
-        <div className={s.sheen} />
-
-        <div className={s.glow} />
-
-        <div className={s.readout}>
-          <span ref={pctRef} className={s.pct}>  0</span>
-          <span className={s.pctUnit}>%</span>
-        </div>
+      <div className={s.readout}>
+        <span ref={pctRef} className={s.pct}>  0</span>
+        <span className={s.pctUnit}>%</span>
       </div>
 
       {phase === 'complete' && (

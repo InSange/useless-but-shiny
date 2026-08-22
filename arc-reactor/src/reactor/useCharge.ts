@@ -38,9 +38,10 @@ export function useCharge(render: (p: number, phase: Phase, dt: number) => void)
   const [phase, setPhase] = useState<Phase>('idle')
 
   /* render 는 매 렌더마다 새 함수다. 이걸 의존성에 넣으면
-     루프가 계속 다시 붙는다. ref 에 최신 것만 담아 둔다. */
+     루프가 계속 다시 붙는다. ref 에 최신 것만 담아 둔다.
+     ⚠️ 렌더 중에 ref 를 쓰면 안 된다(렌더는 순수해야 한다). 이펙트에서 갱신한다. */
   const renderRef = useRef(render)
-  renderRef.current = render
+  useEffect(() => { renderRef.current = render })
 
   const pRef = useRef(0)
   const lastInputRef = useRef(Number.NEGATIVE_INFINITY)
