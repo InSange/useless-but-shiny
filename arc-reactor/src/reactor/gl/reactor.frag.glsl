@@ -163,79 +163,123 @@ vec3 calcNormal(vec3 p) {
     e.xxx * map(p + e.xxx).x);
 }
 
-/* ---------- 가짜 환경맵 ----------
-   금속이 금속처럼 보이는 이유는 "주변을 비추기" 때문이다.
-   진짜 큐브맵 대신, 방향만 넣으면 색을 주는 함수 하나면 충분하다.
-   밝은 로브 두 개(키/필)가 표면 위를 미끄러지면서 금속감을 만든다. */
+/* ---------- 환경 ----------
+   금속은 자기 색이 없다. 100% 반사라서 **비치는 것**이 곧 그 금속의 모습이다.
+   그래서 환경이 매끈한 그라디언트면 아무리 재질을 만져도 플라스틱으로 보인다.
+
+   진짜 큐브맵 대신 "방향 → 색" 함수를 쓰되, 제품 사진 스튜디오처럼
+   **가장자리가 뚜렷한 소프트박스**를 넣는 게 핵심이다.
+   금속에 네모난 창이 비쳐야 눈이 금속으로 읽는다. */
+
+/* 방향을 방위각/고도로 바꿔 직사각 광원을 만든다. */
+float softbox(vec3 d, vec2 center, vec2 half_, float feather) {
+  vec2 sph = vec2(atan(d.x, d.z), asin(clamp(d.y, -1.0, 1.0)));
+  vec2 q = abs(sph - center) - half_;
+  return 1.0 - smoothstep(0.0, feather, max(q.x, q.y));
+}
+
 vec3 env(vec3 d) {
   float up = d.y * 0.5 + 0.5;
 
-  // 바닥은 어둡고 위로 갈수록 밝은 방
-  vec3 c = mix(vec3(0.022, 0.028, 0.042), vec3(0.20, 0.25, 0.33), pow(up, 1.3));
+  // 바닥은 어둡고 위로 갈수록 밝은 방 + 지평선
+  vec3 c = mix(vec3(0.012, 0.016, 0.026), vec3(0.16, 0.20, 0.27), pow(up, 1.4));
+  c = mix(c * 0.35, c, smoothstep(-0.06, 0.06, d.y));   // 바닥은 확 어둡게
 
-  /* 천장 소프트박스 — 넓고 밝은 판.
-     이게 없으면 금속이 비출 게 없어서 흠집도 얼룩도 안 보인다.
-     좁은 로브만으로는 딱 그 자리에서만 반짝이고 나머지는 새까맣다. */
-  c += vec3(0.92, 0.95, 1.00) * smoothstep(0.30, 0.92, d.y) * 0.55;
+  // 키 소프트박스 — 왼쪽 위. 네모난 반사가 금속감의 8할이다.
+  c += vec3(1.00, 0.98, 0.94) * softbox(d, vec2(-0.85, 0.72), vec2(0.60, 0.30), 0.05) * 3.4;
+  // 필 소프트박스 — 오른쪽, 좁고 차갑게
+  c += vec3(0.42, 0.62, 1.00) * softbox(d, vec2( 1.15, 0.05), vec2(0.16, 0.55), 0.07) * 1.1;
+  // 뒤쪽 림 라이트
+  c += vec3(0.75, 0.85, 1.00) * softbox(d, vec2( 2.60,-0.35), vec2(0.45, 0.20), 0.10) * 0.8;
 
   /* 카메라 쪽 방 — 정면을 향한 평평한 금속이 반사할 대상.
-     이게 없으면 바깥 판처럼 화면을 정면으로 보는 면이 전부 새까맣게 나온다.
-     실제 스튜디오에서 피사체 앞에 흰 반사판을 두는 것과 같은 역할. */
-  c += vec3(0.42, 0.46, 0.55) * pow(max(d.z, 0.0), 2.0) * 0.60;
+     이게 없으면 화면을 정면으로 보는 면이 전부 새까맣게 나온다. */
+  c += vec3(0.30, 0.34, 0.42) * pow(max(d.z, 0.0), 3.0) * 0.55;
 
-  // 키 라이트 — 왼쪽 위, 좁고 강하게
-  c += vec3(1.00, 0.97, 0.92) * pow(max(dot(d, normalize(vec3(-0.55, 0.75, 0.38))), 0.0), 26.0) * 1.5;
-  // 필 라이트 — 오른쪽, 차가운 색
-  c += vec3(0.35, 0.60, 1.00) * pow(max(dot(d, normalize(vec3(0.80, -0.15, 0.55))), 0.0), 10.0) * 0.45;
-
-  /* 환경에 잔무늬를 넣는다. 완벽히 매끄러운 환경을 비추면
-     법선을 아무리 흔들어도 반사 색이 안 변해서 흠집이 안 보인다. */
-  c *= 0.82 + 0.36 * vnoise(d.xy * 6.0 + d.z * 2.5);
+  // 잔무늬 — 흠집이 잡아챌 고주파 성분
+  c *= 0.86 + 0.28 * vnoise(d.xy * 6.0 + d.z * 2.5);
 
   // 리액터 자체가 뿜는 빛도 주변에 섞인다
-  c += uArc * uCharge * 0.18 * pow(max(dot(d, vec3(0.0, 0.0, 1.0)), 0.0), 3.0);
+  c += uArc * uCharge * 0.20 * pow(max(dot(d, vec3(0.0, 0.0, 1.0)), 0.0), 3.0);
   return c;
 }
 
+/* 거친 표면은 환경을 흐리게 본다.
+   반사 방향 둘레를 몇 번 더 찍어 평균 낸다 — 밉맵 대신 쓰는 싸구려 방법.
+   반사 방향을 법선 쪽으로 당기기만 하면 "흐려지는" 게 아니라 "빗나간다". */
+vec3 envBlur(vec3 r, vec3 n, float rough) {
+  vec3 t = normalize(cross(n, vec3(0.0, 1.0, 0.0)) + vec3(1e-4));
+  vec3 b = cross(n, t);
+  float sp = rough * rough * 0.7;
+  vec3 c = env(r) * 0.40;
+  c += env(normalize(r + t * sp)) * 0.15;
+  c += env(normalize(r - t * sp)) * 0.15;
+  c += env(normalize(r + b * sp)) * 0.15;
+  c += env(normalize(r - b * sp)) * 0.15;
+  return c;
+}
+
+/* 주변 차폐 — 틈새가 어두워진다.
+   법선 방향으로 조금씩 나가 보면서 "생각보다 가까이 뭔가 있으면" 막힌 것이다.
+   레이마칭에서는 거의 공짜이고, 이것 하나로 깊이감이 확 산다. */
+float calcAO(vec3 p, vec3 n) {
+  float occ = 0.0, sca = 1.0;
+  for (int i = 0; i < 5; i++) {
+    float h = 0.012 + 0.055 * float(i);
+    occ += (h - map(p + n * h).x) * sca;
+    sca *= 0.80;
+  }
+  return clamp(1.0 - 2.4 * occ, 0.0, 1.0);
+}
+
+/* 부드러운 그림자 — 광선을 광원 쪽으로 쏘면서 "얼마나 아슬아슬하게 스쳤나"를 본다.
+   팔이 링에 드리우는 그림자가 생기면 앞뒤 관계가 눈에 보인다. */
+float softShadow(vec3 ro, vec3 rd, float k) {
+  float res = 1.0, t = 0.03;
+  for (int i = 0; i < 24; i++) {
+    float h = map(ro + rd * t).x;
+    res = min(res, k * h / t);
+    if (res < 0.005 || t > 3.5) break;
+    t += clamp(h, 0.02, 0.20);
+  }
+  return clamp(res, 0.0, 1.0);
+}
 
 /* 원주 방향으로 긁힌 자국 — 브러시드 메탈.
    법선을 접선 방향으로 살짝 흔들면 하이라이트가 길게 늘어난다. */
 vec3 brushed(vec3 p, vec3 n, float amt) {
   float r = length(p.xy);
-  float s = hash21(vec2(floor(r * 260.0), 0.0)) - 0.5;
-  vec3 tangent = normalize(vec3(-p.y, p.x, 0.0) + 1e-5);
-  return normalize(n + tangent * s * amt);
+  float sc = hash21(vec2(floor(r * 260.0), 0.0)) - 0.5;
+  vec3 tangent = normalize(vec3(-p.y, p.x, 0.0) + vec3(1e-5));
+  return normalize(n + tangent * sc * amt);
 }
 
-/* 먼지·기름때·미세 흠집.
+/* 먼지·기름때·선반 자국.
    거칠기를 얼룩덜룩하게 만드는 게 핵심이다 — 반사가 고르게 퍼지는 곳과
-   또렷한 곳이 섞여야 "만져 본 물건"으로 보인다.
-   inout 으로 법선과 거칠기를 같이 고친다. */
+   또렷한 곳이 섞여야 "만져 본 물건"으로 보인다. */
 void grime(vec3 p, inout vec3 n, inout float rough, inout vec3 albedo) {
   float a  = atan(p.y, p.x);
   float rr = length(p.xy);
 
-  // 넓은 얼룩 — 손자국, 그을음. 거칠기가 얼룩덜룩해야 만져 본 물건이 된다.
+  // 넓은 얼룩 — 손자국, 그을음
   float smudge = fbm(p.xy * 5.5);
   rough = clamp(rough + (smudge - 0.5) * 0.50, 0.04, 0.95);
   albedo *= 0.68 + 0.52 * smudge;
 
-  /* 선반 자국(turning marks) — 각도 방향으로는 길게, 반지름 방향으로는 촘촘하게.
+  /* 선반 자국 — 각도 방향으로는 길게, 반지름 방향으로는 촘촘하게.
      극좌표에서 비등방 노이즈를 뽑으면 "돌려 깎은 금속"이 된다.
-     등방 노이즈로 하면 그냥 오돌토돌한 표면이지 가공한 금속이 아니다.
 
      ⚠️ 주파수 두 번 틀렸다:
        1) 엡실론은 노이즈 좌표계에서 재야 한다 (월드 단위로 주면 기울기가 0)
-       2) 화면에서 한 주기가 2px면 뭉개져서 안 보인다.
-          리액터가 화면에서 ~700px 이고 월드 2단위니, 6px 무늬는 주파수 ~60. */
+       2) 화면에서 한 주기가 2px면 뭉개져서 안 보인다 — 픽셀 기준으로 잡을 것 */
   vec2 q = vec2(a * 5.0, rr * 80.0);
   float e = 0.4;
   float h0 = vnoise(q);
   vec2 g = vec2(vnoise(q + vec2(e, 0.0)) - h0,
                 vnoise(q + vec2(0.0, e)) - h0) / e;
 
-  vec3 tang = normalize(vec3(-p.y, p.x, 0.0) + 1e-5);
-  vec3 rad  = normalize(vec3(p.xy, 0.0) + 1e-5);
+  vec3 tang = normalize(vec3(-p.y, p.x, 0.0) + vec3(1e-5));
+  vec3 rad  = normalize(vec3(p.xy, 0.0) + vec3(1e-5));
   n = normalize(n + tang * g.x * 0.035 + rad * g.y * 0.10);
 
   // 드문드문 깊게 파인 자국 — 하이라이트를 확 끊어 준다
@@ -244,6 +288,14 @@ void grime(vec3 p, inout vec3 n, inout float rough, inout vec3 albedo) {
   albedo *= 1.0 - deep * 0.25;
 }
 
+/* 실제 금속의 F0(수직 입사 반사율). 이 값이 금속의 "색"이다.
+   전부 회색으로 두면 알루미늄도 구리도 똑같아 보인다. */
+const vec3 F0_ALUM   = vec3(0.91, 0.92, 0.92);
+const vec3 F0_CHROME = vec3(0.55, 0.56, 0.55);
+const vec3 F0_STEEL  = vec3(0.56, 0.57, 0.58);
+const vec3 F0_COPPER = vec3(0.95, 0.64, 0.54);
+
+const vec3 KEY_DIR = vec3(-0.5145, 0.7207, 0.4652);   // normalize(-0.55,0.77,0.5)
 
 vec3 shade(vec3 p, vec3 n, vec3 rd, float m) {
   vec3 v = -rd;
@@ -251,6 +303,7 @@ vec3 shade(vec3 p, vec3 n, vec3 rd, float m) {
   vec3 albedo = vec3(0.05);
   float rough = 0.4;
   float metal = 1.0;
+  vec3 f0 = F0_STEEL;          // 금속의 "색" — 수직 입사 반사율
   vec3 emis = vec3(0.0);
 
   float ang = clockAngle(p.xy);
@@ -258,6 +311,7 @@ vec3 shade(vec3 p, vec3 n, vec3 rd, float m) {
 
   if (m < 1.5) {                       // 두꺼운 크롬 링 — 이 물건의 중심 질량
     albedo = vec3(0.72, 0.80, 0.90);   // 레퍼런스의 링은 푸르스름한 유리질 크롬
+    f0 = F0_CHROME * vec3(0.94, 1.00, 1.08);   // 살짝 푸른 크롬
     rough = 0.10;                      // 거울에 가깝다. 그래야 크롬으로 보인다
     // 둘레를 따라 촘촘한 홈 (널링). 반사가 잘려서 금속 티가 확 난다
     /* 널링을 150줄로 하면 화면에서 1px 미만이라 회색으로 뭉갠다.
@@ -282,6 +336,7 @@ vec3 shade(vec3 p, vec3 n, vec3 rd, float m) {
 
   } else if (m < 2.5) {                // 팔 끝 금속 페룰 캡
     albedo = vec3(0.34, 0.35, 0.38);
+    f0 = F0_STEEL * 0.72;              // 어두운 강철
     rough = 0.18;
     // 캡을 따라 도는 링 홈
     float band = 0.5 + 0.5 * sin(rr * 130.0);
@@ -314,6 +369,7 @@ vec3 shade(vec3 p, vec3 n, vec3 rd, float m) {
 
   } else if (m < 6.5) {                // 안쪽 립
     albedo = vec3(0.60, 0.62, 0.66);
+    f0 = F0_ALUM;
     rough = 0.14;
     grime(p, n, rough, albedo);
     emis = uArc * uCharge * 0.25;
@@ -348,16 +404,48 @@ vec3 shade(vec3 p, vec3 n, vec3 rd, float m) {
     return vec3(0.002, 0.003, 0.005) + uArc * uCharge * ndl * atten * 0.30;
   }
 
-  vec3 r = reflect(rd, n);
-  float fres = pow(1.0 - max(dot(n, v), 0.0), 5.0);
-  vec3 F0 = mix(vec3(0.04), albedo, metal);
-  vec3 F = F0 + (1.0 - F0) * fres;
+  /* ---------- 조명 ----------
+     여기가 "그림"과 "물건"을 가른다.
+       ao   : 틈새가 어두워진다 → 깊이
+       sh   : 팔이 링에 그림자를 드리운다 → 앞뒤 관계
+       GGX  : 하이라이트 모양이 거칠기에 맞게 변한다
+       IBL  : 금속이 주변(소프트박스)을 비춘다 → 금속감의 8할 */
+  vec3 vv = -rd;
+  float ao = calcAO(p, n);
+  float sh = softShadow(p + n * 0.02, KEY_DIR, 10.0);
 
-  // 거친 표면은 환경을 흐리게 본다 — 반사 방향을 법선 쪽으로 당겨 흉내
-  vec3 spec = env(normalize(mix(r, n, rough * 0.7))) * F * (1.0 - rough * 0.55);
-  vec3 diff = albedo * (1.0 - metal) * (env(n) * 0.7 + 0.015);
+  const vec3 KEY_COL = vec3(1.00, 0.97, 0.92) * 1.7;
 
-  return diff + spec + emis;
+  vec3 F0 = mix(vec3(0.045), f0, metal);
+
+  // --- 키 라이트 GGX ---
+  vec3 hv = normalize(KEY_DIR + vv);
+  float NoV = max(dot(n, vv), 1e-4);
+  float NoL = max(dot(n, KEY_DIR), 0.0);
+  float NoH = max(dot(n, hv), 0.0);
+  float VoH = max(dot(vv, hv), 0.0);
+
+  float a  = max(rough * rough, 0.0025);
+  float a2 = a * a;
+  float den = NoH * NoH * (a2 - 1.0) + 1.0;
+  float D = a2 / (PI * den * den);
+  float k = a * 0.5;
+  float G = (NoL / (NoL * (1.0 - k) + k)) * (NoV / (NoV * (1.0 - k) + k));
+  vec3 Fs = F0 + (1.0 - F0) * pow(1.0 - VoH, 5.0);
+  vec3 keySpec = D * G * Fs * KEY_COL * NoL * sh;
+
+  // --- 환경 반사 (IBL 근사) ---
+  vec3 refl = reflect(rd, n);
+  float fres = pow(1.0 - NoV, 5.0);
+  // 거친 표면일수록 프레넬이 덜 튄다 — 안 그러면 가장자리가 하얗게 탄다
+  vec3 Fi = F0 + (max(vec3(1.0 - rough), F0) - F0) * fres;
+  vec3 ibl = envBlur(refl, n, rough) * Fi * ao;
+
+  // --- 확산 (비금속만) ---
+  vec3 diff = albedo * (1.0 - metal) * (env(n) * 0.5 + 0.02) * ao;
+  diff += albedo * (1.0 - metal) * KEY_COL * NoL * sh * 0.22;
+
+  return diff + ibl + keySpec + emis;
 }
 
 /* ACES 근사 — 밝은 부분이 흰색으로 타지 않고 곱게 말린다.
