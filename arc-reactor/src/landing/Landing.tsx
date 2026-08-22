@@ -11,8 +11,8 @@ import { TUNING } from '../reactor/useCharge'
    다른 랜딩 페이지 템플릿에도 그대로 쓴다.
    ============================================================ */
 
-/** 공개 레포를 만들면 여기에 주소를 넣는다. null 이면 링크를 안 그린다. */
-const REPO_URL: string | null = null
+/** null 이면 링크를 안 그린다. */
+const REPO_URL: string | null = 'https://github.com/InSange/useless-but-shiny'
 
 const SPECS = [
   { k: '셰이더', v: '프래그먼트 320줄 · SDF 레이마칭' },
