@@ -1,7 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
 import s from './reactor.module.css'
 import { useCharge, TUNING, type Phase } from './useCharge'
-import { createRenderer, type Frame } from './gl/renderer'
+import { createRenderer, type Frame, type RGB } from './gl/renderer'
+
+/* tokens.css 의 색을 셰이더로 넘긴다.
+   색을 셰이더 상수로 박아 두면 테마를 바꿀 때 두 군데를 고쳐야 한다.
+   토큰이 유일한 출처여야 한다 — 색은 역할로 쓴다는 규칙의 연장이다. */
+function readColor(name: string, fallback: RGB): RGB {
+  const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+  const m = /^#([0-9a-f]{6})$/i.exec(raw)
+  if (!m) return fallback
+  const n = parseInt(m[1], 16)
+  return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255]
+}
 
 /* 손으로 맞추는 연출 상수. */
 const MOTION = {
@@ -18,6 +29,8 @@ const MOTION = {
   tiltAmount: 0,
   /** 시점이 목표를 따라가는 속도 (1/초). 낮을수록 물렁하다 */
   tiltFollow: 5.0,
+  /** 완료 충격파가 퍼지는 데 걸리는 시간(초) */
+  completeSeconds: 1.4,
 }
 
 /* 튜닝용 — 주소에 ?charge=0.55 를 붙이면 그 값으로 고정된다.
@@ -73,7 +86,10 @@ export default function ArcReactor() {
     /* 첫 프레임 전에 화면이 비지 않게 한 번 그려 둔다.
        (탭이 백그라운드면 rAF 가 아예 안 돌기 때문에도 필요하다) */
     r.render({ time: 0, charge: 0, pulse: 0, spin: 0,
-               shakeX: 0, shakeY: 0, tiltX: 0, tiltY: 0 })
+               shakeX: 0, shakeY: 0, tiltX: 0, tiltY: 0,
+               rising: 0, complete: 0,
+               arc: readColor('--color-arc', [0.30, 0.72, 1.00]),
+               arcHot: readColor('--color-arc-hot', [0.88, 0.97, 1.00]) })
 
     /* 개발 중 값 고정해 보기용 손잡이. 빌드에서는 빠진다.
        콘솔에서: __reactor.frame.charge = 0.6; __reactor.draw() */
@@ -92,9 +108,15 @@ export default function ArcReactor() {
   const frame = useRef<Frame>({
     time: 0, charge: 0, pulse: 0, spin: 0,
     shakeX: 0, shakeY: 0, tiltX: 0, tiltY: 0,
+    rising: 0, complete: 0,
+    arc: [0.30, 0.72, 1.00], arcHot: [0.88, 0.97, 1.00],
   })
 
-  const { phase, reset } = useCharge((p, _ph, dt) => {
+  /* 색을 주기적으로 다시 읽는다. 매 프레임 getComputedStyle 은 비싸고,
+     0.5초마다면 공짜에 가까우면서 tokens.css 를 고치는 즉시 반영된다. */
+  const colorAt = useRef(-1)
+
+  const { phase, reset } = useCharge((p, ph, dt) => {
     /* 이 아래는 초당 60번 도는 시뮬레이션이다. 값을 갈아끼우는 게 목적이라
        일부러 객체를 제자리에서 고친다 — 새 객체를 만들면 프레임마다 쓰레기가 쌓인다.
        린터는 "이펙트에서 쓰는 값을 고치지 마라"고 경고하는데, 그 규칙은
@@ -104,6 +126,22 @@ export default function ArcReactor() {
     f.time += dt
     if (pin.current !== null) p = pin.current      // 튜닝용 고정값
     f.charge = p
+
+    if (f.time - colorAt.current > 0.5) {
+      colorAt.current = f.time
+      f.arc = readColor('--color-arc', f.arc)
+      f.arcHot = readColor('--color-arc-hot', f.arcHot)
+    }
+
+    /* 점화 반짝임은 "차오를 때"만. 빠질 때 번쩍이면 이상하다.
+       뚝 끊지 않고 지수 감쇠로 부드럽게 오르내린다. */
+    const wantRising = ph === 'charging' ? 1 : 0
+    f.rising += (wantRising - f.rising) * (1 - Math.exp(-12 * dt))
+
+    /* 완료 충격파 — 도달한 뒤 completeSeconds 동안 0→1 */
+    f.complete = ph === 'complete'
+      ? Math.min(1, f.complete + dt / MOTION.completeSeconds)
+      : 0
 
     /* 흔들림. trauma = p² 로 하면 60%까지 진폭이 5px도 안 돼서
        "안 흔들린다"로 느껴진다. 선형 성분을 섞어 초반부터 느껴지게. */

@@ -57,3 +57,50 @@
   --duration-slow: 900ms;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
+
+/* ============================================================
+   색 테마.
+
+   셰이더는 --color-arc / --color-arc-hot 만 읽는다.
+   즉 이 아래 몇 줄만 바꾸면 리액터 전체 색이 바뀐다 —
+   셰이더 코드는 한 글자도 안 고친다.
+   "색은 이름이 아니라 역할로" 규칙이 실제로 값을 하는 지점이다.
+
+   주소에 ?theme=ember 를 붙이면 적용된다 (main.tsx).
+   ============================================================ */
+
+/* 용광로 */
+:root[data-theme='ember'] {
+  --color-void:     #0a0503;
+  --color-panel:    #1c110a;
+  --color-grid:     #4a2a14;
+  --color-arc:      #ff8a3d;
+  --color-arc-hot:  #fff1dc;
+  --color-arc-dim:  #3a1f0e;
+  --color-text:     #d8b79c;
+  --color-text-dim: #7a5238;
+}
+
+/* 방사능 */
+:root[data-theme='toxic'] {
+  --color-void:     #040805;
+  --color-panel:    #0d1a10;
+  --color-grid:     #1f4a2c;
+  --color-arc:      #6dff9e;
+  --color-arc-hot:  #eaffef;
+  --color-arc-dim:  #16301f;
+  --color-text:     #a8ccb4;
+  --color-text-dim: #4a6b55;
+}
+
+/* 심야 */
+:root[data-theme='violet'] {
+  --color-void:     #07050e;
+  --color-panel:    #16102a;
+  --color-grid:     #38265e;
+  --color-arc:      #a97bff;
+  --color-arc-hot:  #f3ebff;
+  --color-arc-dim:  #241a3d;
+  --color-text:     #bcaad6;
+  --color-text-dim: #5c4c7a;
+}

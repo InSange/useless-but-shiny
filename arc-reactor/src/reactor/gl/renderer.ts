@@ -21,10 +21,17 @@ export type Frame = {
   shakeY: number
   tiltX: number      // -1~1 마우스 시점 기울이기
   tiltY: number
+  rising: number     // 1 충전 중 / 0 감쇠 중 — 점화 반짝임 게이트
+  complete: number   // 100% 도달 후 0→1 (충격파)
+  arc: RGB           // tokens.css 의 --color-arc
+  arcHot: RGB        // tokens.css 의 --color-arc-hot
 }
+
+export type RGB = [number, number, number]
 
 const UNIFORMS = [
   'uRes', 'uTime', 'uCharge', 'uPulse', 'uSpin', 'uShake', 'uTilt',
+  'uRising', 'uComplete', 'uArc', 'uArcHot',
 ] as const
 
 type Loc = Record<(typeof UNIFORMS)[number], WebGLUniformLocation | null>
@@ -110,6 +117,10 @@ export function createRenderer(canvas: HTMLCanvasElement) {
     gl!.uniform1f(loc.uSpin, f.spin)
     gl!.uniform2f(loc.uShake, f.shakeX, f.shakeY)
     gl!.uniform2f(loc.uTilt, f.tiltX, f.tiltY)
+    gl!.uniform1f(loc.uRising, f.rising)
+    gl!.uniform1f(loc.uComplete, f.complete)
+    gl!.uniform3f(loc.uArc, f.arc[0], f.arc[1], f.arc[2])
+    gl!.uniform3f(loc.uArcHot, f.arcHot[0], f.arcHot[1], f.arcHot[2])
     gl!.drawArrays(gl!.TRIANGLES, 0, 3)
   }
 

@@ -20,12 +20,16 @@ uniform float uPulse;    // -1~1 맥동
 uniform float uSpin;     // 라디안, 게이지 위를 도는 반짝임
 uniform vec2  uShake;    // px
 uniform vec2  uTilt;     // -1~1 마우스 시점
+uniform float uRising;   // 1 충전 중 / 0 감쇠 중 — 점화 반짝임을 켤 때만 쓴다
+uniform float uComplete; // 100% 도달 후 0→1 (충격파용)
+
+/* 색은 tokens.css 의 --color-arc / --color-arc-hot 에서 온다.
+   여기 상수로 박아 두면 색 테마를 바꿀 때 두 군데를 고쳐야 한다. */
+uniform vec3  uArc;      // 아크 광원 색
+uniform vec3  uArcHot;   // 코어 중심
 
 #define PI  3.14159265359
 #define TAU 6.28318530718
-
-const vec3 ARC     = vec3(0.30, 0.72, 1.00);   // 아크 광원 색
-const vec3 ARC_HOT = vec3(0.88, 0.97, 1.00);   // 코어 중심
 
 /* ---------- 재질 번호 ----------
    1 하우징 · 2 코일 · 3 빛 쐐기 · 4 게이지 · 5 안쪽 링 · 6 볼트/지지대
@@ -37,6 +41,25 @@ float hash21(vec2 p) {
   p = fract(p * vec2(123.34, 456.21));
   p += dot(p, p + 45.32);
   return fract(p.x * p.y);
+}
+
+/* 값 노이즈 + fbm. 먼지·흠집을 만드는 데 쓴다.
+   텍스처 파일 없이 표면을 지저분하게 만드는 게 목적이다 —
+   완벽하게 매끈한 표면은 CG 티가 나고, 실물은 항상 더럽다. */
+float vnoise(vec2 p) {
+  vec2 i = floor(p), f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  float a = hash21(i);
+  float b = hash21(i + vec2(1.0, 0.0));
+  float c = hash21(i + vec2(0.0, 1.0));
+  float d = hash21(i + vec2(1.0, 1.0));
+  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+float fbm(vec2 p) {
+  float v = 0.0, a = 0.5;
+  for (int i = 0; i < 3; i++) { v += a * vnoise(p); p *= 2.07; a *= 0.5; }
+  return v;
 }
 
 /* ---------- 거리 함수 ---------- */
@@ -141,26 +164,76 @@ vec3 calcNormal(vec3 p) {
    밝은 로브 두 개(키/필)가 표면 위를 미끄러지면서 금속감을 만든다. */
 vec3 env(vec3 d) {
   float up = d.y * 0.5 + 0.5;
-  vec3 c = mix(vec3(0.010, 0.014, 0.022), vec3(0.13, 0.17, 0.23), pow(up, 1.6));
 
-  // 키 라이트 — 왼쪽 위
+  // 바닥은 어둡고 위로 갈수록 밝은 방
+  vec3 c = mix(vec3(0.022, 0.028, 0.042), vec3(0.20, 0.25, 0.33), pow(up, 1.3));
+
+  /* 천장 소프트박스 — 넓고 밝은 판.
+     이게 없으면 금속이 비출 게 없어서 흠집도 얼룩도 안 보인다.
+     좁은 로브만으로는 딱 그 자리에서만 반짝이고 나머지는 새까맣다. */
+  c += vec3(0.92, 0.95, 1.00) * smoothstep(0.30, 0.92, d.y) * 0.55;
+
+  // 키 라이트 — 왼쪽 위, 좁고 강하게
   c += vec3(1.00, 0.97, 0.92) * pow(max(dot(d, normalize(vec3(-0.55, 0.75, 0.38))), 0.0), 26.0) * 1.5;
   // 필 라이트 — 오른쪽, 차가운 색
-  c += vec3(0.35, 0.60, 1.00) * pow(max(dot(d, normalize(vec3(0.80, -0.15, 0.55))), 0.0), 10.0) * 0.40;
+  c += vec3(0.35, 0.60, 1.00) * pow(max(dot(d, normalize(vec3(0.80, -0.15, 0.55))), 0.0), 10.0) * 0.45;
+
+  /* 환경에 잔무늬를 넣는다. 완벽히 매끄러운 환경을 비추면
+     법선을 아무리 흔들어도 반사 색이 안 변해서 흠집이 안 보인다. */
+  c *= 0.82 + 0.36 * vnoise(d.xy * 6.0 + d.z * 2.5);
+
   // 리액터 자체가 뿜는 빛도 주변에 섞인다
-  c += ARC * uCharge * 0.16 * pow(max(dot(d, vec3(0.0, 0.0, 1.0)), 0.0), 3.0);
+  c += uArc * uCharge * 0.18 * pow(max(dot(d, vec3(0.0, 0.0, 1.0)), 0.0), 3.0);
   return c;
 }
+
 
 /* 원주 방향으로 긁힌 자국 — 브러시드 메탈.
    법선을 접선 방향으로 살짝 흔들면 하이라이트가 길게 늘어난다. */
 vec3 brushed(vec3 p, vec3 n, float amt) {
-  float a = atan(p.y, p.x);
   float r = length(p.xy);
   float s = hash21(vec2(floor(r * 260.0), 0.0)) - 0.5;
   vec3 tangent = normalize(vec3(-p.y, p.x, 0.0) + 1e-5);
   return normalize(n + tangent * s * amt);
 }
+
+/* 먼지·기름때·미세 흠집.
+   거칠기를 얼룩덜룩하게 만드는 게 핵심이다 — 반사가 고르게 퍼지는 곳과
+   또렷한 곳이 섞여야 "만져 본 물건"으로 보인다.
+   inout 으로 법선과 거칠기를 같이 고친다. */
+void grime(vec3 p, inout vec3 n, inout float rough, inout vec3 albedo) {
+  float a  = atan(p.y, p.x);
+  float rr = length(p.xy);
+
+  // 넓은 얼룩 — 손자국, 그을음. 거칠기가 얼룩덜룩해야 만져 본 물건이 된다.
+  float smudge = fbm(p.xy * 5.5);
+  rough = clamp(rough + (smudge - 0.5) * 0.50, 0.04, 0.95);
+  albedo *= 0.68 + 0.52 * smudge;
+
+  /* 선반 자국(turning marks) — 각도 방향으로는 길게, 반지름 방향으로는 촘촘하게.
+     극좌표에서 비등방 노이즈를 뽑으면 "돌려 깎은 금속"이 된다.
+     등방 노이즈로 하면 그냥 오돌토돌한 표면이지 가공한 금속이 아니다.
+
+     ⚠️ 주파수 두 번 틀렸다:
+       1) 엡실론은 노이즈 좌표계에서 재야 한다 (월드 단위로 주면 기울기가 0)
+       2) 화면에서 한 주기가 2px면 뭉개져서 안 보인다.
+          리액터가 화면에서 ~700px 이고 월드 2단위니, 6px 무늬는 주파수 ~60. */
+  vec2 q = vec2(a * 5.0, rr * 80.0);
+  float e = 0.4;
+  float h0 = vnoise(q);
+  vec2 g = vec2(vnoise(q + vec2(e, 0.0)) - h0,
+                vnoise(q + vec2(0.0, e)) - h0) / e;
+
+  vec3 tang = normalize(vec3(-p.y, p.x, 0.0) + 1e-5);
+  vec3 rad  = normalize(vec3(p.xy, 0.0) + 1e-5);
+  n = normalize(n + tang * g.x * 0.035 + rad * g.y * 0.10);
+
+  // 드문드문 깊게 파인 자국 — 하이라이트를 확 끊어 준다
+  float deep = smoothstep(0.86, 0.99, vnoise(vec2(a * 9.0, rr * 26.0)));
+  rough = mix(rough, 0.85, deep * 0.7);
+  albedo *= 1.0 - deep * 0.25;
+}
+
 
 vec3 shade(vec3 p, vec3 n, vec3 rd, float m) {
   vec3 v = -rd;
@@ -173,28 +246,36 @@ vec3 shade(vec3 p, vec3 n, vec3 rd, float m) {
   float ang = clockAngle(p.xy);
 
   if (m < 1.5) {                       // 하우징 — 어두운 강철 + 선반 자국
-    albedo = vec3(0.16, 0.15, 0.15);
+    albedo = vec3(0.30, 0.29, 0.28);
     float rr = length(p.xy);
     float grooves = 0.5 + 0.5 * sin(rr * 96.0);
     rough = mix(0.26, 0.44, grooves);
     albedo *= 0.86 + 0.14 * grooves;
     n = brushed(p, n, 0.05);
+    grime(p, n, rough, albedo);
 
   } else if (m < 2.5) {                // 코일 — 따뜻한 금속 + 감긴 자국
-    albedo = vec3(0.42, 0.27, 0.19);
+    albedo = vec3(0.50, 0.33, 0.23);
     float r = length(p.xy);
     float groove = sin((r - 0.74) * 210.0) * 0.5 + 0.5;
     rough = mix(0.20, 0.55, groove);
     n = normalize(n + normalize(vec3(p.xy, 0.0)) * (groove - 0.5) * 0.10);
+    grime(p, n, rough, albedo);
 
   } else if (m < 3.5) {                // 빛 쐐기 — 10칸이 차례로 켜진다
     float slot = floor(ang / (TAU / 10.0));
-    float lit = clamp(uCharge * 10.0 - slot, 0.0, 1.0);
-    lit = smoothstep(0.0, 0.85, lit);
+    float t = uCharge * 10.0 - slot;          // 0 을 넘는 순간 이 칸이 켜진다
+    float lit = smoothstep(0.0, 0.85, clamp(t, 0.0, 1.0));
     albedo = vec3(0.02);
     rough = 0.15;
     metal = 0.0;
-    emis = mix(ARC * 0.05, mix(ARC, ARC_HOT, 0.40) * 1.55, lit) * (0.88 + uPulse * 0.10 * lit);
+    emis = mix(uArc * 0.05, mix(uArc, uArcHot, 0.40) * 1.55, lit) * (0.88 + uPulse * 0.10 * lit);
+
+    /* 점화 — 켜진 직후 확 튀었다가 빠르게 식는다.
+       t 는 칸당 0→1 이고 한 칸이 0.8초라, exp(-t*7) 이면 0.1초쯤 번쩍인다.
+       uRising 을 곱해 "빠질 때"는 안 튀게 한다 — 꺼지면서 번쩍이면 이상하다. */
+    float ignite = exp(-max(t, 0.0) * 7.0) * step(0.0, t) * uRising;
+    emis += mix(uArc, uArcHot, 0.7) * ignite * 2.6;
 
   } else if (m < 4.5) {                // 눈금 게이지
     float ticks = step(0.16, fract(ang / (TAU / 48.0)));
@@ -204,20 +285,21 @@ vec3 shade(vec3 p, vec3 n, vec3 rd, float m) {
     albedo = vec3(0.03, 0.05, 0.07);
     rough = 0.3;
     metal = 0.0;
-    emis = ARC * (0.025 + filled * 0.85 * ticks) + ARC_HOT * sweep * 1.1 * ticks;
+    emis = uArc * (0.025 + filled * 0.85 * ticks) + uArcHot * sweep * 1.1 * ticks;
     // 차오르는 선두를 밝게
     float head = smoothstep(0.10, 0.0, abs(ang - uCharge * TAU));
-    emis += ARC_HOT * head * 1.8 * step(0.02, uCharge);
+    emis += uArcHot * head * 1.8 * step(0.02, uCharge);
 
   } else if (m < 5.5) {                // 안쪽 링 — 충전될수록 금속에서 발광체로
-    albedo = mix(vec3(0.20, 0.19, 0.18), ARC * 0.3, uCharge);
+    albedo = mix(vec3(0.20, 0.19, 0.18), uArc * 0.3, uCharge);
     rough = 0.22;
-    emis = ARC * uCharge * 0.30;
+    emis = uArc * uCharge * 0.30;
     n = brushed(p, n, 0.03);
 
   } else if (m < 6.5) {                // 볼트 · 지지대
     albedo = vec3(0.34, 0.32, 0.30);
     rough = 0.22;
+    grime(p, n, rough, albedo);
 
   } else if (m < 7.5) {                // 플라즈마 코어
     float r = length(p.xy) / 0.285;
@@ -236,11 +318,13 @@ vec3 shade(vec3 p, vec3 n, vec3 rd, float m) {
     albedo = vec3(0.02);
     rough = 0.08;
     metal = 0.0;
-    emis = mix(ARC * (0.45 + rings * 0.5 + fil * 0.22), ARC_HOT * 2.3, hot)
+    emis = mix(uArc * (0.45 + rings * 0.5 + fil * 0.22), uArcHot * 2.3, hot)
          * fill * (1.0 + uPulse * 0.10);
     // 차오르는 경계선 — "지금 여기까지 찼다"가 보여야 한다
-    emis += ARC_HOT * smoothstep(0.07, 0.0, abs(r - uCharge)) * 1.5 * step(0.03, uCharge);
-    emis += ARC * 0.04;
+    emis += uArcHot * smoothstep(0.07, 0.0, abs(r - uCharge)) * 1.5 * step(0.03, uCharge);
+    emis += uArc * 0.04;
+    // 완료 순간 코어가 한 번 과열됐다가 가라앉는다
+    emis += uArcHot * exp(-uComplete * 4.0) * step(0.001, uComplete) * 2.2;
 
   } else {                             // 뒷벽 — 리액터 빛을 받는다
     vec2 g = abs(fract(p.xy * 0.9) - 0.5);
@@ -249,8 +333,8 @@ vec3 shade(vec3 p, vec3 n, vec3 rd, float m) {
     float dist = length(L);
     float atten = 1.0 / (1.0 + dist * dist * 0.42);
     float ndl = max(dot(n, normalize(L)), 0.0);
-    vec3 c = vec3(0.004, 0.006, 0.010) + ARC * line * 0.03;
-    c += ARC * uCharge * (ndl * 0.75 + line * 0.55) * atten;
+    vec3 c = vec3(0.004, 0.006, 0.010) + uArc * line * 0.03;
+    c += uArc * uCharge * (ndl * 0.75 + line * 0.55) * atten;
     return c;
   }
 
@@ -318,14 +402,23 @@ void main() {
   }
 
   // 모은 빛을 더한다. 충전량에 비례.
-  col += ARC * glow * uCharge * (0.9 + uPulse * 0.12);
+  col += uArc * glow * uCharge * (0.9 + uPulse * 0.12);
 
   // 코어에서 퍼지는 광채 (화면 공간)
   float d = length(uv);
-  col += ARC * uCharge * uCharge * 0.09 / (1.0 + d * d * 18.0);
+  col += uArc * uCharge * uCharge * 0.09 / (1.0 + d * d * 18.0);
   // 렌즈 플레어 — 끝에 가서야 터지도록 세제곱
   float flare = pow(uCharge, 3.0);
-  col += ARC_HOT * flare * 0.10 / (1.0 + abs(uv.y) * 260.0 + abs(uv.x) * 1.2);
+  col += uArcHot * flare * 0.10 / (1.0 + abs(uv.y) * 260.0 + abs(uv.x) * 1.2);
+
+  /* 100% 도달 순간 — 밖으로 퍼지는 충격파 한 발.
+     uComplete 는 완료 후 0→1 로 오르는 값이라, 반지름은 커지고 세기는 준다. */
+  if (uComplete > 0.0) {
+    float wave = uComplete * 2.4;
+    float ring = smoothstep(0.16, 0.0, abs(d - wave)) * (1.0 - uComplete);
+    col += uArcHot * ring * 1.4;
+    col += uArc * pow(1.0 - uComplete, 3.0) * 0.5;   // 전체 플래시
+  }
 
   col = tonemap(col * 1.05);
 
