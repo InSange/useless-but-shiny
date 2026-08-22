@@ -34,8 +34,13 @@ export const TUNING = {
   wheelThreshold: 1.5,
 }
 
-export function useCharge(render: (p: number, phase: Phase, dt: number) => void) {
-  const [phase, setPhase] = useState<Phase>('idle')
+export function useCharge(
+  render: (p: number, phase: Phase, dt: number) => void,
+  /** 시작 진행률. 튜닝용 — ?charge=1 로 완료 화면에 바로 들어갈 때 쓴다. */
+  initialCharge = 0,
+) {
+  const startPhase: Phase = initialCharge >= 1 ? 'complete' : 'idle'
+  const [phase, setPhase] = useState<Phase>(startPhase)
 
   /* render 는 매 렌더마다 새 함수다. 이걸 의존성에 넣으면
      루프가 계속 다시 붙는다. ref 에 최신 것만 담아 둔다.
@@ -43,9 +48,9 @@ export function useCharge(render: (p: number, phase: Phase, dt: number) => void)
   const renderRef = useRef(render)
   useEffect(() => { renderRef.current = render })
 
-  const pRef = useRef(0)
+  const pRef = useRef(initialCharge)
   const lastInputRef = useRef(Number.NEGATIVE_INFINITY)
-  const phaseRef = useRef<Phase>('idle')
+  const phaseRef = useRef<Phase>(startPhase)
 
   useEffect(() => {
     const markInput = () => { lastInputRef.current = performance.now() }
@@ -54,14 +59,20 @@ export function useCharge(render: (p: number, phase: Phase, dt: number) => void)
        안 막으면 브라우저가 페이지를 스크롤하려 들고, 모바일에서는
        주소창이 숨었다 나왔다 하면서 화면이 튄다. */
     const onWheel = (e: WheelEvent) => {
+      // 다 채운 뒤에는 진짜 페이지가 열린다. 스크롤을 브라우저에 돌려준다.
+      if (phaseRef.current === 'complete') return
       e.preventDefault()
       if (Math.abs(e.deltaY) >= TUNING.wheelThreshold) markInput()
     }
-    const onTouchMove = (e: TouchEvent) => { e.preventDefault(); markInput() }
+    const onTouchMove = (e: TouchEvent) => {
+      if (phaseRef.current === 'complete') return
+      e.preventDefault(); markInput()
+    }
 
     /* 휠만 받으면 키보드 사용자는 이 페이지를 아예 못 쓴다.
        Space / ↓ / PageDown 을 누르고 있어도 충전되게 한다. */
     const onKeyDown = (e: KeyboardEvent) => {
+      if (phaseRef.current === 'complete') return
       if (e.key === ' ' || e.key === 'ArrowDown' || e.key === 'PageDown') {
         e.preventDefault()
         markInput()

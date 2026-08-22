@@ -7,25 +7,29 @@
 
 .scene {
   position: relative;
-  display: grid;
-  place-items: center;
-  height: 100%;
-  overflow: hidden;
+  min-height: 100%;
   background: var(--color-void);
   cursor: ns-resize;   /* "위아래로 굴려라"를 커서로 알린다 */
   touch-action: none;  /* 모바일에서 브라우저가 스크롤을 가로채지 않게 */
 }
+/* 페이지가 열린 뒤에는 평범한 스크롤 페이지가 된다 */
+.scene[data-phase='complete'] { cursor: auto; touch-action: auto; }
 
+/* 캔버스는 화면에 고정된 배경. 페이지 내용이 그 위로 흐른다. */
 .canvas {
-  position: absolute;
+  position: fixed;
   inset: 0;
   width: 100%;
   height: 100%;
   display: block;
+  z-index: 0;
 }
 
 .fallback {
-  position: relative;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   max-width: 32ch;
   text-align: center;
   line-height: var(--leading-normal);
@@ -35,7 +39,9 @@
 /* ---------- 캔버스 위 글자 ---------- */
 
 .readout {
-  position: absolute;
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
   bottom: var(--space-32);
   display: flex;
   align-items: baseline;
@@ -51,7 +57,9 @@
 .pctUnit { font-size: var(--text-sm); color: var(--color-text-dim); }
 
 .hint {
-  position: absolute;
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
   bottom: var(--space-16);
   font-size: var(--text-sm);
   letter-spacing: var(--tracking-wide);
@@ -63,7 +71,9 @@
 .hint[data-phase='decaying'] { color: #ff7a6b; }
 
 .pinned {
-  position: absolute;
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
   top: var(--space-6);
   padding: var(--space-2) var(--space-4);
   font-size: var(--text-xs);
@@ -75,7 +85,9 @@
 .pinned code { font-family: var(--font-mono); }
 
 .meta {
-  position: absolute;
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
   bottom: var(--space-6);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
@@ -83,61 +95,55 @@
   pointer-events: none;
 }
 
-/* ---------- 100% ---------- */
-
-.done {
-  position: absolute;
+/* 페이지가 열리면 캔버스 위에 어둠막을 한 겹 깐다.
+   리액터를 셰이더에서 어둡게 하는 것만으로는 부족하다 —
+   코어는 여전히 새하얗고, 그 위에 글자가 얹히면 안 읽힌다. */
+.scrim {
+  position: fixed;
   inset: 0;
-  display: grid;
-  place-content: center;
-  justify-items: center;
-  gap: var(--space-8);
+  z-index: 1;
+  pointer-events: none;
   background: color-mix(in srgb, var(--color-void) 62%, transparent);
-  backdrop-filter: blur(3px);
-  animation: fadeIn var(--duration-base) var(--ease-out) both;
+  opacity: 0;
+  animation: scrimIn 1000ms 800ms var(--ease-out) forwards;
+}
+@keyframes scrimIn { to { opacity: 1; } }
+
+/* ---------- 100% — 빛이 터져 화면을 덮었다가 걷힌다 ---------- */
+
+/* 중앙에서 흰빛이 퍼져 화면을 꽉 채우고, 잠깐 머문 뒤 사라진다.
+   그 사이에 리액터가 뒤로 물러나고 페이지가 자리를 잡는다.
+   즉 전환을 **보여주는** 게 아니라 **가려서** 매끄럽게 만든다.
+   (게임 로딩에서 화면을 한 번 덮는 것과 같은 수법) */
+.flash {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 50%,
+    #ffffff 0 42%,
+    var(--color-arc-hot) 58%,
+    color-mix(in srgb, var(--color-arc) 70%, transparent) 74%,
+    transparent 100%);
+  transform: scale(0.04);
+  animation: flash 2.1s var(--ease-out) forwards;
+  will-change: transform, opacity;
 }
 
-.helloSvg { width: min(80vw, 720px); overflow: visible; }
-
-.helloText {
-  font-family: var(--font-mono);
-  font-size: 96px;
-  letter-spacing: var(--tracking-wide);
-  text-anchor: middle;
-
-  fill: var(--color-arc-hot);
-  fill-opacity: 0;
-  stroke: var(--color-arc);
-  stroke-width: 1.25;
-  stroke-dasharray: 1400;
-  stroke-dashoffset: 1400;
-
-  filter: drop-shadow(0 0 14px color-mix(in srgb, var(--color-arc) 75%, transparent));
-  animation:
-    draw var(--duration-slow) var(--ease-out) forwards,
-    fillIn var(--duration-base) 700ms forwards;
+@keyframes flash {
+  0%   { transform: scale(0.04); opacity: 0.85; }
+  16%  { transform: scale(1.30); opacity: 1; }
+  30%  { transform: scale(4.20); opacity: 1; }
+  46%  { transform: scale(4.60); opacity: 1; }
+  100% { transform: scale(5.00); opacity: 0; }
 }
-
-@keyframes draw   { to { stroke-dashoffset: 0; } }
-@keyframes fillIn { to { fill-opacity: 1; } }
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-.again {
-  padding: var(--space-2) var(--space-6);
-  font-size: var(--text-sm);
-  letter-spacing: var(--tracking-wide);
-  color: var(--color-arc);
-  background: transparent;
-  border: 1px solid color-mix(in srgb, var(--color-arc) 45%, transparent);
-  border-radius: 999px;
-  cursor: pointer;
-  transition: background var(--duration-fast) var(--ease-out);
-}
-.again:hover { background: color-mix(in srgb, var(--color-arc) 12%, transparent); }
-.again:focus-visible { outline: 2px solid var(--color-arc); outline-offset: 3px; }
 
 @media (prefers-reduced-motion: reduce) {
-  /* 카메라 흔들림은 JS 에서 이미 0 으로 만든다. 여기서는 나머지를 줄인다. */
-  .helloText { animation: fillIn 1ms forwards; stroke-dashoffset: 0; }
-  .done { animation: none; }
+  /* 카메라 흔들림은 JS 에서 이미 0 으로 만든다.
+     빛 터짐은 없애지 않되 확 줄인다 — 화면 전체가 번쩍이는 건 부담이 크다. */
+  .flash { animation: flashCalm 700ms var(--ease-out) forwards; }
+}
+@keyframes flashCalm {
+  0%   { transform: scale(5.0); opacity: 0.45; }
+  100% { transform: scale(5.0); opacity: 0; }
 }

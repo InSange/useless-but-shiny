@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import s from './reactor.module.css'
 import { useCharge, TUNING, type Phase } from './useCharge'
 import { createRenderer, type Frame, type RGB } from './gl/renderer'
+import Landing from '../landing/Landing'
 
 /* tokens.css 의 색을 셰이더로 넘긴다.
    색을 셰이더 상수로 박아 두면 테마를 바꿀 때 두 군데를 고쳐야 한다.
@@ -31,6 +32,9 @@ const MOTION = {
   tiltFollow: 5.0,
   /** 완료 충격파가 퍼지는 데 걸리는 시간(초) */
   completeSeconds: 1.4,
+  /** 리액터가 뒤로 물러나 배경이 되는 데 걸리는 시간(초).
+      빛이 화면을 덮고 있는 동안 끝나야 전환이 안 보인다. */
+  recedeSeconds: 1.1,
 }
 
 /* 튜닝용 — 주소에 ?charge=0.55 를 붙이면 그 값으로 고정된다.
@@ -87,7 +91,7 @@ export default function ArcReactor() {
        (탭이 백그라운드면 rAF 가 아예 안 돌기 때문에도 필요하다) */
     r.render({ time: 0, charge: 0, pulse: 0, spin: 0,
                shakeX: 0, shakeY: 0, tiltX: 0, tiltY: 0,
-               rising: 0, complete: 0,
+               rising: 0, complete: 0, recede: 0,
                arc: readColor('--color-arc', [0.30, 0.72, 1.00]),
                arcHot: readColor('--color-arc-hot', [0.88, 0.97, 1.00]) })
 
@@ -108,7 +112,7 @@ export default function ArcReactor() {
   const frame = useRef<Frame>({
     time: 0, charge: 0, pulse: 0, spin: 0,
     shakeX: 0, shakeY: 0, tiltX: 0, tiltY: 0,
-    rising: 0, complete: 0,
+    rising: 0, complete: 0, recede: 0,
     arc: [0.30, 0.72, 1.00], arcHot: [0.88, 0.97, 1.00],
   })
 
@@ -143,6 +147,11 @@ export default function ArcReactor() {
       ? Math.min(1, f.complete + dt / MOTION.completeSeconds)
       : 0
 
+    /* 리액터가 뒤로 물러나 배경이 된다 */
+    f.recede = ph === 'complete'
+      ? Math.min(1, f.recede + dt / MOTION.recedeSeconds)
+      : 0
+
     /* 흔들림. trauma = p² 로 하면 60%까지 진폭이 5px도 안 돼서
        "안 흔들린다"로 느껴진다. 선형 성분을 섞어 초반부터 느껴지게. */
     const trauma = 0.35 * p + 0.65 * p * p
@@ -167,7 +176,17 @@ export default function ArcReactor() {
     if (pctRef.current) {
       pctRef.current.textContent = String(Math.round(p * 100)).padStart(3, ' ')
     }
-  })
+  }, pin ?? 0)
+
+  /* 충전 중에는 페이지가 안 움직여야 하고, 다 채우면 평범한 페이지가 된다. */
+  useEffect(() => {
+    document.body.style.overflow = phase === 'complete' ? '' : 'hidden'
+    return () => { document.body.style.overflow = '' }
+  }, [phase])
+
+  /* 다시 충전하려면 맨 위로 올려야 한다 — 안 그러면 스크롤이 내려간 채로
+     게이트 화면이 떠서 아무것도 안 보인다. */
+  const restart = () => { window.scrollTo(0, 0); reset() }
 
   return (
     <div className={s.scene} data-phase={phase}>
@@ -180,38 +199,27 @@ export default function ArcReactor() {
         </p>
       )}
 
-      <div className={s.readout}>
-        <span ref={pctRef} className={s.pct}>  0</span>
-        <span className={s.pctUnit}>%</span>
-      </div>
-
-      {phase === 'complete' && (
-        <div className={s.done}>
-          <svg className={s.helloSvg} viewBox="0 0 720 140" role="img" aria-label="hello world">
-            <text x="360" y="96" className={s.helloText}>hello world</text>
-          </svg>
-          <button type="button" className={s.again} onClick={reset}>다시</button>
+      {phase !== 'complete' && (
+        <div className={s.readout}>
+          <span ref={pctRef} className={s.pct}>  0</span>
+          <span className={s.pctUnit}>%</span>
         </div>
       )}
 
-      <p className={s.hint} data-phase={phase}>
-        {phase === 'idle' && '스크롤해라'}
-        {phase === 'charging' && '멈추지 마라'}
-        {phase === 'decaying' && '빠진다'}
-      </p>
-
-      {/* 값이 고정돼 있으면 스크롤이 안 먹는다. 화면에 안 적어 두면
-          "왜 안 움직이지" 하고 한참 헤맨다 — 실제로 헤맸다. */}
-      {pin !== null && (
-        <p className={s.pinned}>
-          ⚠️ <code>?charge={pin}</code> 로 고정됨 — 스크롤이 안 먹는다.
-          주소에서 떼면 정상 동작.
-        </p>
+      {/* 다 채우면 빛이 터져 화면을 덮었다가 걷히고, 그 아래 진짜 페이지가 있다 */}
+      {phase === 'complete' && (
+        <>
+          <div className={s.scrim} aria-hidden="true" />
+          <div className={s.flash} aria-hidden="true" />
+          <Landing onReset={restart} />
+        </>
       )}
 
-      <footer className={s.meta} aria-hidden="true">
-        충전 {TUNING.chargeSeconds}s · 감쇠 {TUNING.decaySeconds}s
-      </footer>
+      {phase !== 'complete' && (
+        <footer className={s.meta} aria-hidden="true">
+          충전 {TUNING.chargeSeconds}s · 감쇠 {TUNING.decaySeconds}s
+        </footer>
+      )}
     </div>
   )
 }

@@ -22,6 +22,7 @@ uniform vec2  uShake;    // px
 uniform vec2  uTilt;     // -1~1 마우스 시점
 uniform float uRising;   // 1 충전 중 / 0 감쇠 중 — 점화 반짝임을 켤 때만 쓴다
 uniform float uComplete; // 100% 도달 후 0→1 (충격파용)
+uniform float uRecede;   // 페이지가 열리며 리액터가 뒤로 물러난다 0→1
 
 /* 색은 tokens.css 의 --color-arc / --color-arc-hot 에서 온다.
    여기 상수로 박아 두면 색 테마를 바꿀 때 두 군데를 고쳐야 한다. */
@@ -460,8 +461,12 @@ void main() {
   vec2 uv = (gl_FragCoord.xy - 0.5 * uRes) / min(uRes.x, uRes.y);
 
   // 카메라. 흔들림을 카메라 자체에 주면 앞뒤가 다르게 밀린다(진짜 시차).
-  vec3 ro = vec3(0.0, 0.0, 5.15);
+  // 페이지가 열리면 카메라가 물러나 리액터가 배경이 된다
+  vec3 ro = vec3(0.0, 0.0, 5.15 + uRecede * 4.2);
   vec3 ta = vec3(0.0);
+  // 물러나면서 화면 아래쪽으로 내려간다 — 제목이 앉을 자리를 비워 준다
+  ro.y += uRecede * 0.85;
+  ta.y += uRecede * 0.85;
   ro.yz *= rot(-uTilt.y * 0.22);
   ro.xz *= rot( uTilt.x * 0.30);
   ro.xy += uShake * 0.0022;
@@ -521,7 +526,8 @@ void main() {
     col += uArc * pow(1.0 - uComplete, 3.0) * 0.5;   // 전체 플래시
   }
 
-  col = tonemap(col * 1.05);
+  // 물러나면서 어두워진다 — 글자가 읽혀야 하니까
+  col = tonemap(col * 1.05 * mix(1.0, 0.58, uRecede));
 
   // 배경이 이미 검정이라 비네트는 아주 살짝만
   col *= 1.0 - 0.10 * pow(length(uv * vec2(0.62, 0.95)), 2.0);
