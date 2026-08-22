@@ -34,7 +34,7 @@ export const TUNING = {
   wheelThreshold: 1.5,
 }
 
-export function useCharge(render: (p: number, phase: Phase) => void) {
+export function useCharge(render: (p: number, phase: Phase, dt: number) => void) {
   const [phase, setPhase] = useState<Phase>('idle')
 
   /* render 는 매 렌더마다 새 함수다. 이걸 의존성에 넣으면
@@ -87,7 +87,7 @@ export function useCharge(render: (p: number, phase: Phase) => void) {
       last = now
 
       if (phaseRef.current === 'complete') {
-        renderRef.current(1, 'complete')
+        renderRef.current(1, 'complete', dt)
         raf = requestAnimationFrame(tick)
         return
       }
@@ -108,7 +108,7 @@ export function useCharge(render: (p: number, phase: Phase) => void) {
       else if (p > 0) applyPhase('decaying')
       else applyPhase('idle')
 
-      renderRef.current(p, phaseRef.current)
+      renderRef.current(p, phaseRef.current, dt)
       raf = requestAnimationFrame(tick)
     }
 

@@ -1,21 +1,26 @@
 /* ============================================================
    아크 리액터 — 화면.
 
-   진행률은 --p (0~1) 하나로 들어온다. 매 프레임 JS가 .scene에 쓴다.
-   여기 있는 모든 연출은 그 --p 하나에서 파생된다.
-   흔들림도 --shake-x/y/r 로 들어온다.
+   JS 루프가 .scene 에 매 프레임 네 가지를 쓴다:
+     --p      진행률 0~1
+     --spin   링 위를 도는 반짝임의 각도 (p가 클수록 빨리 돈다)
+     --pulse  -1~1 사인파 (p가 클수록 빨리 뛴다)
+     --shake-x/y/r  카메라 흔들림
+
+   여기 있는 모든 연출은 이 넷에서 파생된다. CSS 에는 상태가 없다.
    ============================================================ */
 
-/* --p 를 "숫자"로 등록해 둔다. 이러면 calc 안에서 안전하게 곱할 수 있고
-   브라우저가 보간(transition)도 할 수 있다. */
-@property --p {
-  syntax: '<number>';
-  inherits: true;
-  initial-value: 0;
-}
+/* 커스텀 속성을 "타입"과 함께 등록한다.
+   이러면 calc 안에서 안전하게 쓸 수 있고, 브라우저가 값을 보간할 수 있다.
+   등록 안 하면 --p 는 그냥 문자열이라 애니메이션이 뚝뚝 끊긴다. */
+@property --p     { syntax: '<number>'; inherits: true; initial-value: 0; }
+@property --pulse { syntax: '<number>'; inherits: true; initial-value: 0; }
+@property --spin  { syntax: '<angle>';  inherits: true; initial-value: 0deg; }
 
 .scene {
   --p: 0;
+  --pulse: 0;
+  --spin: 0deg;
   --shake-x: 0px;
   --shake-y: 0px;
   --shake-r: 0deg;
@@ -27,25 +32,24 @@
   overflow: hidden;
   background:
     radial-gradient(120% 80% at 50% 50%,
-      color-mix(in srgb, var(--color-arc) calc(var(--p) * 7%), transparent) 0%,
+      color-mix(in srgb, var(--color-arc) calc(var(--p) * 8%), transparent) 0%,
       transparent 60%),
     var(--color-void);
   cursor: ns-resize;   /* "위아래로 굴려라"를 커서로 알린다 */
 }
 
-/* ---------- 뒤에서 흔들리는 것들 ---------- */
+/* ---------- 뒤에서 흔들리고 밝아지는 것들 ---------- */
 
 .backdrop {
   position: absolute;
-  inset: -6%;                  /* 흔들려도 가장자리가 안 드러나게 여유를 준다 */
+  inset: -8%;                  /* 흔들려도 가장자리가 안 드러나게 여유를 준다 */
   pointer-events: none;
 
-  /* 이 한 줄이 "카메라 셰이킹"의 전부다. */
+  /* 카메라 셰이킹. 배경은 진폭 100%를 받는다. */
   transform: translate3d(var(--shake-x), var(--shake-y), 0) rotate(var(--shake-r));
 
-  /* 차오를수록 뒤가 밝아진다 */
-  opacity: calc(0.28 + var(--p) * 0.72);
-  filter: brightness(calc(1 + var(--p) * 0.9)) saturate(calc(1 + var(--p) * 0.6));
+  opacity: calc(0.3 + var(--p) * 0.7);
+  filter: brightness(calc(1 + var(--p) * 1.1)) saturate(calc(1 + var(--p) * 0.7));
 }
 
 .grid {
@@ -66,7 +70,7 @@
   border: 1px solid var(--color-grid);
   background: color-mix(in srgb, var(--color-panel) 70%, transparent);
   box-shadow: inset 0 0 var(--space-8)
-    color-mix(in srgb, var(--color-arc) calc(var(--p) * 18%), transparent);
+    color-mix(in srgb, var(--color-arc) calc(var(--p) * 22%), transparent);
 }
 
 .panel:nth-child(1) { left:  6%; top: 12%; width: 18%; height: 22%; }
@@ -83,35 +87,106 @@
   background: radial-gradient(closest-side,
     color-mix(in srgb, var(--color-arc) 55%, transparent) 0%,
     transparent 70%);
-  /* 차오를수록 넓게 퍼지고 진해진다 */
-  transform: scale(calc(0.3 + var(--p) * 0.9));
+  transform: scale(calc(0.3 + var(--p) * 0.95 + var(--pulse) * 0.04 * var(--p)));
   opacity: calc(var(--p) * var(--p));
 }
 
-/* ---------- 리액터 — 여기만 안 흔들린다 ---------- */
+/* ---------- 리액터 ---------- */
 
 .reactor {
+  --shake-x: 0px;
+  --shake-y: 0px;
+  --shake-r: 0deg;
+
   position: relative;
   display: grid;
   place-items: center;
   width: min(46vmin, 320px);
   aspect-ratio: 1;
+
+  /* 배경보다 덜 흔들린다(JS에서 35%로 줄여서 넣는다).
+     앞뒤가 서로 다르게 움직여야 "카메라가 흔들린다"로 읽힌다. */
+  transform: translate3d(var(--shake-x), var(--shake-y), 0) rotate(var(--shake-r));
 }
 
 .reactor > * { grid-area: 1 / 1; }
 
-/* 시계방향 채움. conic-gradient 를 원판에 깔고 가운데를 뚫어 링으로 만든다. */
+/* 시계방향으로 차오르는 띠.
+   conic-gradient 의 0deg 는 12시고 각도는 시계방향으로 커진다.
+   (SVG·canvas 는 0이 3시라 헷갈리기 쉽다 — 여기서 한 번 틀렸다.) */
 .ring {
   width: 100%;
   aspect-ratio: 1;
   border-radius: 50%;
-  /* conic-gradient 의 0deg 는 12시고 각도는 시계방향으로 커진다.
-     (SVG·canvas 는 0이 3시라 헷갈리기 쉽다 — 여기서 한 번 틀렸다.) */
   background: conic-gradient(
     var(--color-arc) calc(var(--p) * 360deg),
     var(--color-arc-dim) 0
   );
   mask: radial-gradient(closest-side, transparent 71%, #000 72%);
+}
+
+/* 띠 위에 어두운 칸막이를 새겨 게이지처럼 보이게 한다. 48칸. */
+.ringTicks {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: repeating-conic-gradient(
+    var(--color-void) 0 1deg,
+    transparent 1deg 7.5deg
+  );
+  mask: radial-gradient(closest-side, transparent 71%, #000 72%);
+  opacity: 0.85;
+}
+
+/* 띠 위를 도는 반짝임.
+   바깥 요소가 "채워진 구간까지만" 잘라 내고(conic mask),
+   ::before 가 그 안에서 돈다. 그래서 빈 구간에는 안 나타난다. */
+.ringSweep {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  mask: conic-gradient(#000 calc(var(--p) * 360deg), transparent 0);
+  opacity: calc(var(--p) * 0.95);
+  mix-blend-mode: screen;
+}
+
+.ringSweep::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(from var(--spin),
+    color-mix(in srgb, var(--color-arc-hot) 90%, transparent) 0deg,
+    transparent 44deg,
+    transparent 316deg,
+    color-mix(in srgb, var(--color-arc-hot) 90%, transparent) 360deg);
+  mask: radial-gradient(closest-side, transparent 71%, #000 72%);
+}
+
+/* 차오르는 선두의 밝은 점. 컨테이너를 p×360도 돌리면
+   12시에 붙여 둔 점이 정확히 띠의 끝에 온다. */
+.ringHead {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  rotate: calc(var(--p) * 360deg);
+  opacity: calc(min(var(--p) * 8, 1));
+}
+
+.ringHead::after {
+  content: '';
+  position: absolute;
+  top: 14.5%;                 /* 띠 한가운데(반지름 85.5%) 위에 오도록 */
+  left: 50%;
+  width: 9%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: var(--color-arc-hot);
+  box-shadow:
+    0 0 var(--space-4) var(--space-1) color-mix(in srgb, var(--color-arc) 90%, transparent),
+    0 0 var(--space-8) color-mix(in srgb, var(--color-arc) 55%, transparent);
 }
 
 .ringGlow {
@@ -121,24 +196,54 @@
   box-shadow:
     0 0 var(--space-8) color-mix(in srgb, var(--color-arc) 60%, transparent),
     inset 0 0 var(--space-6) color-mix(in srgb, var(--color-arc) 45%, transparent);
-  opacity: calc(var(--p) * 0.9);
+  /* 맥동. p가 클수록 JS에서 --pulse 가 빨리 뛴다. */
+  opacity: calc(var(--p) * (0.72 + var(--pulse) * 0.2));
 }
 
-.core {
-  width: 44%;
+/* ---------- 가운데도 원형으로 차오른다 ---------- */
+
+/* 채움 바에 트랙이 없으면 "얼마나 찼는지"를 눈이 못 읽는다.
+   다 찼을 때의 크기를 미리 어둡게 그려 둔다. */
+.coreTrack {
+  width: 62%;
   aspect-ratio: 1;
   border-radius: 50%;
   background: radial-gradient(closest-side,
-    color-mix(in srgb, var(--color-arc-hot) calc(var(--p) * 100%), var(--color-arc)) 0%,
-    var(--color-arc) 55%,
-    transparent 78%);
-  transform: scale(calc(0.55 + var(--p) * 0.45));
-  opacity: calc(0.25 + var(--p) * 0.75);
-  filter: blur(calc((1 - var(--p)) * 3px));
+    color-mix(in srgb, var(--color-arc-dim) 85%, transparent) 0%,
+    color-mix(in srgb, var(--color-arc-dim) 40%, transparent) 88%,
+    transparent 100%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-arc) 16%, transparent);
 }
 
-/* 링 "안"에 두면 최대 충전 때 코어 빛에 글자가 묻힌다. 링 아래로 뺀다.
-   .reactor > * 가 전부 grid-area 1/1 이라 absolute 로 빼내야 한다. */
+/* 색 정지점(color stop)의 위치 자체를 --p 로 밀어 낸다.
+   → 빛나는 원판의 반지름이 0에서 62%까지 자란다. */
+.core {
+  width: 62%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(closest-side,
+    var(--color-arc-hot) 0%,
+    var(--color-arc) calc(var(--p) * 56%),
+    color-mix(in srgb, var(--color-arc) 50%, transparent) calc(var(--p) * 82%),
+    transparent calc(var(--p) * 100%));
+  filter: blur(calc(1px + (1 - var(--p)) * 5px));
+  transform: scale(calc(1 + var(--pulse) * 0.04 * var(--p)));
+}
+
+/* 차오르는 경계선. 이게 있어야 "지금 여기까지 찼다"가 눈에 딱 보인다. */
+.coreEdge {
+  width: 62%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(closest-side,
+    transparent calc(var(--p) * 84%),
+    color-mix(in srgb, var(--color-arc-hot) 95%, transparent) calc(var(--p) * 93%),
+    transparent calc(var(--p) * 100%));
+  opacity: calc(min(var(--p) * 5, 1) * 0.9);
+  transform: scale(calc(1 + var(--pulse) * 0.04 * var(--p)));
+}
+
+/* 링 "안"에 두면 최대 충전 때 코어 빛에 글자가 묻힌다. 링 아래로 뺀다. */
 .readout {
   position: absolute;
   top: calc(100% + var(--space-6));
@@ -235,7 +340,7 @@
 /* ---------- 흔들림을 못 견디는 사람 ---------- */
 
 @media (prefers-reduced-motion: reduce) {
-  /* 흔들림 자체는 JS에서 이미 0으로 만든다. 여기서는 나머지를 줄인다. */
+  /* 흔들림 자체는 JS 에서 이미 0 으로 만든다. 여기서는 나머지를 줄인다. */
   .helloText { animation: fillIn 1ms forwards; stroke-dashoffset: 0; }
   .done { animation: none; }
 }
