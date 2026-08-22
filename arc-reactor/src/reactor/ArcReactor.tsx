@@ -18,6 +18,13 @@ const MOTION = {
   pulseBoostHz: 2.6,
 }
 
+/** 코일 블록(= 빛 쐐기) 개수. 참고 이미지가 10개였다. */
+const COILS = 10
+/** 베젤에 박힌 볼트 개수 */
+const BOLTS = 8
+/** 코어를 받치는 방사형 지지대 개수 */
+const STRUTS = 4
+
 export default function ArcReactor() {
   const sceneRef = useRef<HTMLDivElement>(null)
   const reactorRef = useRef<HTMLDivElement>(null)
@@ -93,17 +100,61 @@ export default function ArcReactor() {
         <div className={s.bloom} />
       </div>
 
-      {/* 리액터 */}
+      {/* ── 리액터 ──────────────────────────────────────────
+          바깥에서 안으로 층을 쌓는다. 실제 아크 리액터 구조를 따랐다:
+            코일 블록 → 그 사이의 빛 쐐기 → 베젤 → 눈금 게이지
+            → 동심원 → 방사형 지지대 → 플라즈마 코어
+          빛이 "코일 사이"로 새어 나오는 게 핵심이라, 쐐기 10개를
+          시계방향으로 하나씩 켜서 충전을 보여준다. */}
       <div ref={reactorRef} className={s.reactor}>
-        <div className={s.ring} />        {/* 시계방향으로 차오르는 띠 */}
-        <div className={s.ringTicks} />   {/* 띠를 눈금으로 썰어 게이지처럼 */}
-        <div className={s.ringSweep} />   {/* 띠 위를 도는 반짝임 */}
-        <div className={s.ringHead} />    {/* 차오르는 선두의 밝은 점 */}
-        <div className={s.ringGlow} />
 
-        <div className={s.coreTrack} />   {/* 채움 바의 "트랙" — 다 차면 여기까지 */}
-        <div className={s.core} />        {/* 가운데도 원형으로 차오른다 */}
-        <div className={s.coreEdge} />    {/* 차오르는 경계선 */}
+        {/* 1. 코일 사이로 새어 나오는 빛 — i번째는 p가 i/10을 넘을 때 켜진다 */}
+        <div className={s.wedges}>
+          {Array.from({ length: COILS }, (_, i) => (
+            <span key={i} className={s.wedge} style={{ '--i': i } as React.CSSProperties} />
+          ))}
+        </div>
+
+        {/* 2. 금속 코일 블록 */}
+        <div className={s.coils}>
+          {Array.from({ length: COILS }, (_, i) => (
+            <span key={i} className={s.coil} style={{ '--i': i } as React.CSSProperties} />
+          ))}
+        </div>
+
+        {/* 3. 금속 베젤 + 볼트 */}
+        <div className={s.bezel} />
+        <div className={s.bolts}>
+          {Array.from({ length: BOLTS }, (_, i) => (
+            <span key={i} className={s.bolt} style={{ '--i': i } as React.CSSProperties} />
+          ))}
+        </div>
+
+        {/* 4. 눈금 게이지 — 진행률을 정확히 읽는 층 */}
+        <div className={s.gaugeTrack} />
+        <div className={s.gauge} />
+        <div className={s.gaugeTicks} />
+        <div className={s.gaugeSweep} />
+        <div className={s.gaugeHead} />
+
+        {/* 5. 얇은 동심원 + 방사형 지지대 */}
+        <div className={s.innerRing} />
+        <div className={s.struts}>
+          {Array.from({ length: STRUTS }, (_, i) => (
+            <span key={i} className={s.strut} style={{ '--i': i } as React.CSSProperties} />
+          ))}
+        </div>
+
+        {/* 6. 플라즈마 코어 — 원형으로 차오른다 */}
+        <div className={s.coreTrack} />
+        <div className={s.core} />
+        <div className={s.coreEdge} />
+        <div className={s.coreFlare} />
+
+        {/* 7. 유리 반사 — 맨 위에 얇게 덮어 "덮개 아래"로 보이게 */}
+        <div className={s.sheen} />
+
+        <div className={s.glow} />
 
         <div className={s.readout}>
           <span ref={pctRef} className={s.pct}>  0</span>

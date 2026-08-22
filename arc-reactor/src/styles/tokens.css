@@ -46,6 +46,11 @@
   --color-text:      #9fb8cc;
   --color-text-dim:  #46606f;
 
+  /* 금속 — 코일 블록·베젤. 차가운 빛과 대비되도록 살짝 따뜻하게 */
+  --color-metal-lo:  #100c0b;
+  --color-metal:     #2b2320;
+  --color-metal-hi:  #6d5a51;
+
   /* --- 움직임 --- */
   --duration-fast: 120ms;
   --duration-base: 320ms;
