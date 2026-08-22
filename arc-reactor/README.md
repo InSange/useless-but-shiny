@@ -30,7 +30,14 @@ IDLE ──스크롤──▶ CHARGING ──p=1.0──▶ COMPLETE
 | `inputGraceMs` | 120 | 이 시간 입력이 없으면 "손 뗐다" |
 | `wheelThreshold` | 1.5 | 트랙패드 관성 꼬리를 무시하는 최소 델타 |
 
-`src/reactor/ArcReactor.tsx` 의 `MAX_SHAKE_PX`, `MAX_SHAKE_DEG` 로 흔들림 세기를 맞춘다.
+`src/reactor/ArcReactor.tsx` 의 `MOTION`:
+
+| | 기본값 | 뜻 |
+|---|---|---|
+| `maxShakePx` | 22 | 최대 충전일 때 카메라 흔들림 진폭 |
+| `tiltAmount` | **0** | 마우스로 시점 기울이기. **0 이면 완전 고정**, 1 이면 최대 |
+| `spinBoostDegPerSec` | 150 | 게이지 반짝임 최고 속도 |
+| `pulseBoostHz` | 2.6 | 맥동 최고 속도 |
 
 ## 구조
 

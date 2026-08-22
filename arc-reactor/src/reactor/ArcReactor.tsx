@@ -13,7 +13,10 @@ const MOTION = {
   /** 맥동(숨쉬기) 주파수(Hz). p에 따라 빨라진다 */
   pulseBaseHz: 0.7,
   pulseBoostHz: 2.6,
-  /** 마우스 시점이 목표를 따라가는 속도 (1/초). 낮을수록 물렁하다 */
+  /** 마우스로 시점을 얼마나 기울일까. **0 이면 완전 고정**.
+      0.4 정도면 살짝 반응하고, 1 이면 원래 세기다. */
+  tiltAmount: 0,
+  /** 시점이 목표를 따라가는 속도 (1/초). 낮을수록 물렁하다 */
   tiltFollow: 5.0,
 }
 
@@ -46,12 +49,14 @@ export default function ArcReactor() {
   }, [])
 
   /* 마우스 시점. 목표값만 기록하고, 실제 값은 루프에서 천천히 따라간다.
-     바로 반영하면 뻣뻣하고, 따라가게 하면 무게가 생긴다. */
+     바로 반영하면 뻣뻣하고, 따라가게 하면 무게가 생긴다.
+     tiltAmount 가 0 이면 아예 안 듣는다 — 리스너도 안 단다. */
   const tiltTarget = useRef({ x: 0, y: 0 })
   useEffect(() => {
+    if (MOTION.tiltAmount === 0) return
     const onMove = (e: PointerEvent) => {
-      tiltTarget.current.x = (e.clientX / window.innerWidth) * 2 - 1
-      tiltTarget.current.y = (e.clientY / window.innerHeight) * 2 - 1
+      tiltTarget.current.x = ((e.clientX / window.innerWidth) * 2 - 1) * MOTION.tiltAmount
+      tiltTarget.current.y = ((e.clientY / window.innerHeight) * 2 - 1) * MOTION.tiltAmount
     }
     window.addEventListener('pointermove', onMove)
     return () => window.removeEventListener('pointermove', onMove)
