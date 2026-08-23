@@ -1,0 +1,9 @@
+{
+  "name": "useless-but-shiny",
+  "private": true,
+  "type": "module",
+  "description": "쓸모없지만 화려하죠? — 쓸모는 없고 화려하기만 한 랜딩 페이지 모음",
+  "scripts": {
+    "build": "node scripts/build-all.mjs"
+  }
+}

@@ -1,0 +1,54 @@
+# main 에 푸시하면 컬렉션 전체를 빌드해 GitHub Pages 에 올린다.
+# 새 랜딩 페이지를 추가해도 이 파일은 안 고쳐도 된다 —
+# scripts/build-all.mjs 가 폴더를 알아서 찾는다.
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:      # Actions 탭에서 손으로도 돌릴 수 있게
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 배포는 한 번에 하나만. 연달아 푸시하면 앞의 것을 취소한다.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          # 루트엔 lock 파일이 없다. 각 페이지 것을 캐시 키로 쓴다.
+          cache-dependency-path: '*/package-lock.json'
+
+      - name: 컬렉션 빌드
+        run: npm run build
+
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark" />
+<title>쓸모없지만 화려하죠?</title>
+<meta name="description" content="쓸모는 없고 화려하기만 한 랜딩 페이지 모음." />
+
+<style>
+  /* 이 목록 페이지는 빌드를 안 탄다 — 정적 HTML 한 장이다.
+     그래서 토큰을 여기 직접 둔다. 값은 각 페이지의 tokens.css 와 같은 눈금. */
+  :root {
+    --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
+    --space-6: 24px; --space-8: 32px; --space-12: 48px; --space-16: 64px;
+    --space-32: 128px;
+
+    --text-xs: 12px; --text-sm: 14px; --text-md: 16px; --text-lg: 20px;
+
+    --void:      #04060a;
+    --panel:     #0d1620;
+    --line:      #1b3348;
+    --arc:       #5ec8ff;
+    --arc-hot:   #e8fbff;
+    --text:      #9fb8cc;
+    --text-dim:  #46606f;
+
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    --sans: system-ui, -apple-system, "Pretendard", "Noto Sans KR", sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  * { margin: 0; }
+
+  body {
+    min-height: 100dvh;
+    padding: var(--space-32) var(--space-6);
+    background:
+      radial-gradient(120% 70% at 50% 0%, #0a1622 0%, transparent 60%),
+      var(--void);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: var(--text-md);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 62ch;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-32);
+  }
+
+  header { display: flex; flex-direction: column; gap: var(--space-4); text-align: center; align-items: center; }
+  .eyebrow {
+    font-family: var(--mono); font-size: var(--text-xs);
+    letter-spacing: .18em; text-transform: uppercase; color: var(--arc);
+  }
+  h1 {
+    font-size: clamp(30px, 7vw, 52px); line-height: 1.15; letter-spacing: -.02em;
+    color: var(--arc-hot); text-shadow: 0 0 var(--space-8) rgb(94 200 255 / .35);
+  }
+  .lede { max-width: 40ch; color: var(--text); }
+
+  h2 {
+    font-size: var(--text-sm); font-weight: 500; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--text-dim);
+  }
+
+  section { display: flex; flex-direction: column; gap: var(--space-6); }
+
+  ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: var(--space-3); }
+
+  .card {
+    display: flex; align-items: baseline; gap: var(--space-4);
+    padding: var(--space-4) var(--space-6);
+    text-decoration: none; color: inherit;
+    background: rgb(13 22 32 / .55);
+    border: 1px solid rgb(94 200 255 / .16);
+    border-radius: var(--space-2);
+    transition: border-color 160ms cubic-bezier(.16,1,.3,1), background 160ms cubic-bezier(.16,1,.3,1);
+  }
+  .card:hover { border-color: rgb(94 200 255 / .5); background: rgb(13 22 32 / .8); }
+  .card:focus-visible { outline: 2px solid var(--arc); outline-offset: 3px; }
+
+  .num { font-family: var(--mono); font-size: var(--text-xs); color: var(--text-dim); }
+  .body { display: flex; flex-direction: column; gap: var(--space-1); }
+  .name { font-size: var(--text-lg); color: var(--arc-hot); }
+  .note { font-size: var(--text-sm); color: var(--text-dim); }
+
+  .soon { opacity: .45; }
+  .soon .name { color: var(--text-dim); }
+
+  footer {
+    padding-top: var(--space-8);
+    border-top: 1px solid rgb(94 200 255 / .1);
+    font-size: var(--text-xs); color: var(--text-dim); text-align: center;
+  }
+  footer a { color: var(--arc); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <p class="eyebrow">Useless but shiny</p>
+      <h1>쓸모없지만 화려하죠?</h1>
+      <p class="lede">기능도 목적도 없는 랜딩 페이지 모음.<br />만들면서 재밌었으면 그걸로 됐습니다.</p>
+    </header>
+
+    <section>
+      <h2>목록</h2>
+      <ul>
+        <li>
+          <a class="card" href="./arc-reactor/">
+            <span class="num">01</span>
+            <span class="body">
+              <span class="name">Arc Reactor</span>
+              <span class="note">스크롤을 8초 동안 멈추지 않아야 열린다. 멈추면 3초 만에 원점.</span>
+            </span>
+          </a>
+        </li>
+        <li>
+          <div class="card soon">
+            <span class="num">02</span>
+            <span class="body">
+              <span class="name">준비 중</span>
+              <span class="note">다음 페이지</span>
+            </span>
+          </div>
+        </li>
+      </ul>
+    </section>
+
+    <footer>
+      손으로 만든 CSS · 의존성 없는 WebGL · MIT ·
+      <a href="https://github.com/InSange/useless-but-shiny">GitHub</a>
+    </footer>
+  </div>
+</body>
+</html>
