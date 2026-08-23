@@ -54,7 +54,13 @@ function compile(gl: WebGLRenderingContext, type: number, src: string) {
   return sh
 }
 
-export function createRenderer(canvas: HTMLCanvasElement) {
+/** GPU 컨텍스트가 날아갔다 / 돌아왔다를 바깥에 알린다. */
+export type GLStatus = 'ok' | 'lost' | 'dead'
+
+export function createRenderer(
+  canvas: HTMLCanvasElement,
+  onStatus?: (s: GLStatus) => void,
+) {
   const gl = (canvas.getContext('webgl', {
     alpha: false,
     antialias: false,       // 레이마칭이라 MSAA는 어차피 안 먹는다
@@ -64,33 +70,71 @@ export function createRenderer(canvas: HTMLCanvasElement) {
 
   if (!gl) return null
 
-  const vs = compile(gl, gl.VERTEX_SHADER, vertSrc)
-  const fs = compile(gl, gl.FRAGMENT_SHADER, fragSrc)
-  if (!vs || !fs) return null
+  /* --- GPU 자원. 컨텍스트가 날아가면 전부 무효가 되므로
+         한 번에 다시 만들 수 있게 묶어 둔다. --- */
+  let prog: WebGLProgram | null = null
+  let buf: WebGLBuffer | null = null
+  let loc: Loc | null = null
 
-  const prog = gl.createProgram()!
-  gl.attachShader(prog, vs)
-  gl.attachShader(prog, fs)
-  gl.linkProgram(prog)
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
-    console.error('[reactor] 링크 실패\n' + gl.getProgramInfoLog(prog))
-    return null
+  function build(): boolean {
+    const vs = compile(gl!, gl!.VERTEX_SHADER, vertSrc)
+    const fs = compile(gl!, gl!.FRAGMENT_SHADER, fragSrc)
+    if (!vs || !fs) return false
+
+    const p = gl!.createProgram()!
+    gl!.attachShader(p, vs)
+    gl!.attachShader(p, fs)
+    gl!.linkProgram(p)
+    // 링크가 끝나면 셰이더 객체는 더 필요 없다
+    gl!.deleteShader(vs)
+    gl!.deleteShader(fs)
+    if (!gl!.getProgramParameter(p, gl!.LINK_STATUS)) {
+      console.error('[reactor] 링크 실패\n' + gl!.getProgramInfoLog(p))
+      return false
+    }
+    gl!.useProgram(p)
+
+    /* 화면을 덮는 "큰 삼각형" 하나.
+       사각형 두 개보다 삼각형 하나가 낫다 — 대각선 이음매에서
+       픽셀이 두 번 셰이딩되는 낭비가 없다. */
+    const b = gl!.createBuffer()
+    gl!.bindBuffer(gl!.ARRAY_BUFFER, b)
+    gl!.bufferData(gl!.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl!.STATIC_DRAW)
+    const aPos = gl!.getAttribLocation(p, 'aPos')
+    gl!.enableVertexAttribArray(aPos)
+    gl!.vertexAttribPointer(aPos, 2, gl!.FLOAT, false, 0, 0)
+
+    prog = p
+    buf = b
+    loc = Object.fromEntries(UNIFORMS.map((n) => [n, gl!.getUniformLocation(p, n)])) as Loc
+    return true
   }
-  gl.useProgram(prog)
 
-  /* 화면을 덮는 "큰 삼각형" 하나.
-     사각형 두 개보다 삼각형 하나가 낫다 — 대각선 이음매에서
-     픽셀이 두 번 셰이딩되는 낭비가 없다. */
-  const buf = gl.createBuffer()
-  gl.bindBuffer(gl.ARRAY_BUFFER, buf)
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW)
-  const aPos = gl.getAttribLocation(prog, 'aPos')
-  gl.enableVertexAttribArray(aPos)
-  gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0)
+  if (!build()) return null
 
-  const loc = Object.fromEntries(
-    UNIFORMS.map((n) => [n, gl.getUniformLocation(prog, n)]),
-  ) as Loc
+  /* --- 컨텍스트 손실 ---
+     모바일에서 탭을 옮기거나 GPU 가 압박받으면 브라우저가 컨텍스트를
+     회수한다. 아무것도 안 하면 캔버스가 **영구히 검은 화면**이 되고
+     사용자는 이유를 모른다. 흔한 일이라 반드시 처리해야 한다.
+
+     ⚠️ preventDefault() 를 부르지 않으면 브라우저가 복구를 아예 안 해 준다. */
+  let alive = true
+
+  const onLost = (e: Event) => {
+    e.preventDefault()
+    alive = false
+    prog = null; buf = null; loc = null
+    w = 0; h = 0                        // 복구 뒤 viewport 를 다시 잡게
+    onStatus?.('lost')
+  }
+
+  const onRestored = () => {
+    if (build()) { alive = true; onStatus?.('ok') }
+    else onStatus?.('dead')             // 셰이더가 다시 안 붙으면 포기
+  }
+
+  canvas.addEventListener('webglcontextlost', onLost)
+  canvas.addEventListener('webglcontextrestored', onRestored)
 
   /* 레이마칭은 픽셀 수에 정비례해 비싸다.
      4K 레티나에서 DPR 그대로 그리면 픽셀이 4배가 된다 → 1.5로 제한. */
@@ -110,6 +154,7 @@ export function createRenderer(canvas: HTMLCanvasElement) {
   }
 
   function render(f: Frame) {
+    if (!alive || !loc) return          // 컨텍스트가 없는 동안은 조용히 넘긴다
     resize()
     gl!.uniform2f(loc.uRes, w, h)
     gl!.uniform1f(loc.uTime, f.time)
@@ -126,15 +171,31 @@ export function createRenderer(canvas: HTMLCanvasElement) {
     gl!.drawArrays(gl!.TRIANGLES, 0, 3)
   }
 
-  /** 느리면 해상도를 낮춘다 (0.5 ~ 2.0) */
-  function setScale(s: number) { scale = s; w = 0; resize() }
-
-  function dispose() {
-    gl!.deleteBuffer(buf)
-    gl!.deleteProgram(prog)
-    gl!.deleteShader(vs!)
-    gl!.deleteShader(fs!)
+  /** 느리면 해상도를 낮춘다 (0.5 ~ 2.0). 같은 값이면 아무것도 안 한다. */
+  function setScale(s: number) {
+    if (s === scale) return
+    scale = s
+    w = 0
+    resize()
   }
 
-  return { render, setScale, dispose }
+  function getScale() { return scale }
+
+  /** 테스트용 — 컨텍스트 손실을 일부러 일으킨다. */
+  function simulateLoss() {
+    const ext = gl!.getExtension('WEBGL_lose_context')
+    if (!ext) return false
+    ext.loseContext()
+    setTimeout(() => ext.restoreContext(), 1200)
+    return true
+  }
+
+  function dispose() {
+    canvas.removeEventListener('webglcontextlost', onLost)
+    canvas.removeEventListener('webglcontextrestored', onRestored)
+    if (buf) gl!.deleteBuffer(buf)
+    if (prog) gl!.deleteProgram(prog)
+  }
+
+  return { render, setScale, getScale, simulateLoss, dispose }
 }
