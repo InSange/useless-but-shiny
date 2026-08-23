@@ -36,6 +36,68 @@
   color: var(--color-text-dim);
 }
 
+/* 눈에는 안 보이지만 스크린 리더는 읽는다.
+   display:none 이나 visibility:hidden 은 접근성 트리에서도 사라져서 안 된다. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- 건너뛰는 문 ----------
+   포커스 받을 때만 보이는 흔한 skip link 방식은 여기선 틀렸다.
+   손목이 아파서 8초를 못 굴리는 사람은 마우스를 쓴다 — 늘 보여야 한다.
+   대신 눈에 덜 띄게 두어 농담은 살린다. */
+.skip {
+  position: fixed;
+  top: var(--space-6);
+  right: var(--space-6);
+  z-index: 30;
+
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+
+  font: inherit;
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-wide);
+  color: var(--color-text-dim);
+  background: color-mix(in srgb, var(--color-void) 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-arc) 22%, transparent);
+  border-radius: 999px;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+.skip:hover {
+  color: var(--color-arc);
+  border-color: color-mix(in srgb, var(--color-arc) 55%, transparent);
+}
+/* 포커스 표시는 배경이 어두우므로 넉넉하게 */
+.skip:focus-visible {
+  outline: 2px solid var(--color-arc);
+  outline-offset: 3px;
+  color: var(--color-arc);
+}
+
+.kbd {
+  padding: 1px var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-dim);
+  border: 1px solid color-mix(in srgb, var(--color-text-dim) 40%, transparent);
+  border-radius: var(--space-1);
+}
+
 /* ---------- 캔버스 위 글자 ---------- */
 
 .readout {

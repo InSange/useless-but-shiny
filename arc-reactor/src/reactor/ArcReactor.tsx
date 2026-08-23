@@ -51,6 +51,8 @@ export default function ArcReactor() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [pin] = useState(pinnedCharge)
   const pctRef = useRef<HTMLSpanElement>(null)
+  const liveRef = useRef<HTMLParagraphElement>(null)
+  const lastBucket = useRef(-1)
   const [glFailed, setGlFailed] = useState(false)
 
   /* 흔들림을 끌지 말지. 전정기관 문제가 있는 사람에게 화면 흔들림은
@@ -120,7 +122,7 @@ export default function ArcReactor() {
      0.5초마다면 공짜에 가까우면서 tokens.css 를 고치는 즉시 반영된다. */
   const colorAt = useRef(-1)
 
-  const { phase, reset } = useCharge((p, ph, dt) => {
+  const { phase, reset, complete } = useCharge((p, ph, dt) => {
     /* 이 아래는 초당 60번 도는 시뮬레이션이다. 값을 갈아끼우는 게 목적이라
        일부러 객체를 제자리에서 고친다 — 새 객체를 만들면 프레임마다 쓰레기가 쌓인다.
        린터는 "이펙트에서 쓰는 값을 고치지 마라"고 경고하는데, 그 규칙은
@@ -176,13 +178,35 @@ export default function ArcReactor() {
     if (pctRef.current) {
       pctRef.current.textContent = String(Math.round(p * 100)).padStart(3, ' ')
     }
+
+    /* 스크린 리더용 진행률.
+       aria-live 를 60fps 로 갱신하면 읽기가 끊임없이 끊긴다.
+       10% 단위로 바뀔 때만 쓴다. */
+    const bucket = Math.floor(p * 10)
+    if (liveRef.current && bucket !== lastBucket.current) {
+      lastBucket.current = bucket
+      liveRef.current.textContent = `충전 ${bucket * 10}%`
+    }
   }, pin ?? 0)
 
-  /* 충전 중에는 페이지가 안 움직여야 하고, 다 채우면 평범한 페이지가 된다. */
+  /* 충전 중에는 페이지가 안 움직여야 하고, 다 채우면 평범한 페이지가 된다.
+     ⚠️ 완료 시 '' 로 비우면 안 된다 — 인라인 스타일만 지워지고
+     reset.css 의 body { overflow: hidden } 이 다시 살아나 스크롤이 잠긴다.
+     'auto' 를 명시해야 한다. */
   useEffect(() => {
-    document.body.style.overflow = phase === 'complete' ? '' : 'hidden'
+    document.body.style.overflow = phase === 'complete' ? 'auto' : 'hidden'
     return () => { document.body.style.overflow = '' }
   }, [phase])
+
+  /* Esc 로도 건너뛴다. 버튼까지 Tab 으로 가는 것조차 부담인 경우가 있다. */
+  useEffect(() => {
+    if (phase === 'complete') return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { e.preventDefault(); complete() }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [phase, complete])
 
   /* 다시 충전하려면 맨 위로 올려야 한다 — 안 그러면 스크롤이 내려간 채로
      게이트 화면이 떠서 아무것도 안 보인다. */
@@ -199,6 +223,26 @@ export default function ArcReactor() {
         </p>
       )}
 
+      {/* ── 건너뛰는 문 ──────────────────────────────────────
+          8초 연속 스크롤을 못 하면 이 페이지의 내용에 닿을 방법이
+          아예 없다. 그래서 이 버튼은 DOM 에서 **맨 앞**에 온다 —
+          Tab 을 한 번만 눌러도 닿아야 한다.
+          포커스 받을 때만 보이는 흔한 "skip link" 방식은 여기선 틀렸다.
+          마우스만 쓰는 사람도 봐야 하므로 늘 보이게 둔다. */}
+      {phase !== 'complete' && (
+        <>
+          <p className={s.srOnly}>
+            이 페이지는 스크롤을 {TUNING.chargeSeconds}초 동안 멈추지 않아야 열립니다.
+            바로 열려면 아래 “건너뛰고 바로 보기” 버튼을 누르거나 Esc 키를 누르세요.
+          </p>
+          <button type="button" className={s.skip} onClick={complete}>
+            건너뛰고 바로 보기
+            <kbd className={s.kbd}>Esc</kbd>
+          </button>
+          <p ref={liveRef} className={s.srOnly} aria-live="polite" aria-atomic="true" />
+        </>
+      )}
+
       {phase !== 'complete' && (
         <div className={s.readout}>
           <span ref={pctRef} className={s.pct}>  0</span>
@@ -213,6 +257,16 @@ export default function ArcReactor() {
           <div className={s.flash} aria-hidden="true" />
           <Landing onReset={restart} />
         </>
+      )}
+
+      {/* 지금 무슨 일이 일어나는지. aria-hidden 은 아니다 —
+          "빠진다"는 시각 정보만으로 전달되면 안 되는 상태 변화다. */}
+      {phase !== 'complete' && (
+        <p className={s.hint} data-phase={phase}>
+          {phase === 'idle' && '스크롤해라'}
+          {phase === 'charging' && '멈추지 마라'}
+          {phase === 'decaying' && '빠진다'}
+        </p>
       )}
 
       {phase !== 'complete' && (

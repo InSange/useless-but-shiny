@@ -134,6 +134,17 @@ export function useCharge(
     }
   }, [])
 
+  /* 게이트를 건너뛴다.
+     8초 연속 스크롤을 못 하는 사람에게는 이 페이지의 내용에 닿을
+     방법이 아예 없다 — 손목이 아프거나, 운동 장애가 있거나,
+     스크린 리더를 쓰면 "스크롤"이라는 개념 자체가 없다.
+     농담이 접근성을 이기지 못한다. */
+  const complete = () => {
+    pRef.current = 1
+    phaseRef.current = 'complete'
+    setPhase('complete')
+  }
+
   const reset = () => {
     pRef.current = 0
     lastInputRef.current = Number.NEGATIVE_INFINITY
@@ -141,5 +152,5 @@ export function useCharge(
     setPhase('idle')
   }
 
-  return { phase, reset }
+  return { phase, reset, complete }
 }
