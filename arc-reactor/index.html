@@ -5,7 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="color-scheme" content="dark" />
     <title>Arc Reactor — 쓸모없지만 화려하죠?</title>
-    <meta name="description" content="스크롤을 멈추면 처음으로 돌아갑니다." />
+    <meta name="description" content="스크롤을 8초 동안 멈추지 않아야 열리는 페이지. 멈추면 3초 만에 원점." />
+
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <meta name="theme-color" content="#04060a" />
+
+    <!-- 링크를 붙였을 때 뜨는 미리보기 카드.
+
+         ⚠️ 크롤러(슬랙 봇·트위터 봇 등)는 **자바스크립트를 실행하지 않는다.**
+         이 index.html 의 날것 그대로만 읽고 간다. React 안에서 넣으면 무용지물.
+         그래서 여기 직접 박는다.
+
+         ⚠️ og:image 는 **절대 주소**여야 한다. 상대 경로는 대부분 못 읽는다.
+         규격은 1200×630. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="쓸모없지만 화려하죠?" />
+    <meta property="og:locale" content="ko_KR" />
+    <meta property="og:title" content="Arc Reactor — 쓸모없지만 화려하죠?" />
+    <meta property="og:description" content="스크롤을 8초 동안 멈추지 않아야 열립니다. 멈추면 3초 만에 원점." />
+    <meta property="og:url" content="https://insange.github.io/useless-but-shiny/arc-reactor/" />
+    <meta property="og:image" content="https://insange.github.io/useless-but-shiny/preview.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="어둠 속에서 푸르게 빛나는 아크 리액터. 충전 85%." />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Arc Reactor — 쓸모없지만 화려하죠?" />
+    <meta name="twitter:description" content="스크롤을 8초 동안 멈추지 않아야 열립니다. 멈추면 3초 만에 원점." />
+    <meta name="twitter:image" content="https://insange.github.io/useless-but-shiny/preview.jpg" />
   </head>
   <body>
     <div id="root"></div>
