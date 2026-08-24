@@ -1,0 +1,35 @@
+*, *::before, *::after { box-sizing: border-box; }
+* { margin: 0; }
+
+html, body, #root { height: 100%; }
+
+body {
+  background: var(--color-void);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
+  line-height: var(--leading-snug);
+  -webkit-font-smoothing: antialiased;
+
+  /* 어두운 방은 화면 한 장이다. 스크롤이 생기면 손전등 좌표와
+     기억 격자가 전부 어긋난다. 방을 다 뒤진 뒤에야 스크롤이 열린다. */
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+button { font: inherit; color: inherit; background: none; border: none; }
+
+/* 불이 켜지면 페이지가 길어진다.
+
+   ⚠️ body 에 overflow: auto 를 주는 것만으로는 안 풀린다.
+   위의 height: 100% 가 html·body·#root 를 화면 한 장에 못 박고 있어서
+   그 안의 긴 내용이 스크롤 높이로 안 잡힌다.
+   세 겹을 다 풀어 줘야 한다. */
+html[data-lit],
+html[data-lit] body,
+html[data-lit] #root {
+  height: auto;
+  min-height: 100%;
+  overflow: visible;
+}
+html[data-lit] body { overflow-y: auto; }

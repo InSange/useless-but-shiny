@@ -1,0 +1,258 @@
+/* ============================================================
+   어두운 방.
+   층 번호는 DarkRoom.tsx 위쪽 주석 참고.
+   ============================================================ */
+
+.room {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: var(--color-void);
+  cursor: none;                 /* 커서 자체는 숨긴다 — 빛이 커서다 */
+}
+
+/* ---------- 0층: 벽 ----------
+   ⚠️ 이게 없으면 손전등이 안 보인다.
+
+   처음엔 방을 순수한 검정으로 두고 셰이더만 만들었다. 그림자까지 완벽히
+   계산되는데 화면은 여전히 캄캄했다 — 당연했다. **빛은 스스로 안 보인다.**
+   뭔가에 부딪혀야 보인다. 검은 벽은 밝게 비춰도 검다.
+
+   그래서 벽에 결을 준다. 평소엔 어둠에 가려 안 보이고,
+   빛이 닿는 자리에서만 드러난다. 빛의 웅덩이가 여기서 생긴다. */
+.room::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-color: var(--color-wall);
+  background-image:
+    /* 굵은 얼룩 — 콘크리트의 물자국 */
+    radial-gradient(70% 55% at 18% 26%, #3a342c 0%, transparent 60%),
+    radial-gradient(55% 45% at 76% 72%, #211d19 0%, transparent 58%),
+    radial-gradient(40% 60% at 52% 12%, #363029 0%, transparent 62%),
+    /* 타일 줄눈 — 빛이 스칠 때 방향감이 생긴다 */
+    repeating-linear-gradient(to right,  #0000 0 118px, #00000070 118px 120px),
+    repeating-linear-gradient(to bottom, #0000 0 118px, #00000070 118px 120px);
+}
+
+/* 미세한 결. SVG 잡음을 data URI 로 박는다 — 외부 파일 없이 진짜 난수 결이 나온다.
+   baseFrequency 가 클수록 결이 곱다. 0.9 면 대략 1~2px 알갱이. */
+.room::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.28;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+}
+
+/* ---------- 1층: 빛을 막는 물건 ---------- */
+
+.prop {
+  position: absolute;
+  translate: -50% -50%;
+  z-index: 1;
+  background: var(--color-prop);
+  border-radius: var(--radius-sm);
+  /* 셰이더가 이 자리를 그림자로 새까맣게 칠하므로 평소엔 안 보인다.
+     불이 켜진 뒤(어둠이 걷힌 뒤)에야 방에 물건이 있었다는 게 드러난다. */
+}
+
+/* ---------- 1층: 숨겨진 글 ---------- */
+
+.secret {
+  position: absolute;
+  translate: -50% -50%;
+  z-index: 1;
+  width: max-content;
+  max-width: min(30ch, 34vw);
+  padding: var(--space-3) var(--space-4);
+  text-align: center;
+  --dwell: 0;                   /* 0~1, 매 프레임 JS 가 쓴다 */
+}
+.secret[data-align='left']  { text-align: left; }
+.secret[data-align='right'] { text-align: right; }
+
+.line {
+  font-size: var(--text-xl);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
+  text-wrap: balance;
+}
+
+.sub {
+  margin-top: var(--space-2);
+  font-size: var(--text-sm);
+  letter-spacing: var(--tracking-wide);
+  color: var(--color-dim);
+}
+
+/* 비추고 있는 동안 차오르는 테두리.
+   이게 없으면 "0.45초를 채워야 한다"는 규칙이 안 보인다 —
+   사람은 보이지 않는 규칙을 못 배운다. */
+.dwellRing {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-md);
+  pointer-events: none;
+  opacity: calc(var(--dwell) * 1.4);
+  /* conic-gradient 의 0도는 12시 방향이다 (SVG·캔버스와 다르다) */
+  background: conic-gradient(
+    var(--color-found) calc(var(--dwell) * 360deg),
+    transparent calc(var(--dwell) * 360deg)
+  );
+  /* 가운데를 뚫어 테두리만 남긴다 */
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  padding: 2px;
+}
+
+/* ---------- 3층: 찾아낸 것 ----------
+   ★ z-index 만 바뀐다. 어둠(2층) 위로 올라서므로 다시는 안 어두워진다.
+   "찾았다"를 색이나 글씨가 아니라 **층**으로 표현한 것. */
+.found {
+  z-index: 3;
+  animation: pop var(--duration-slow) var(--ease-out) both;
+}
+.found .line { color: var(--color-beam-hot); }
+.found .sub  { color: var(--color-found); }
+.found .dwellRing { opacity: 0; }
+
+@keyframes pop {
+  0%   { scale: 1;    filter: brightness(2.6); }
+  22%  { scale: 1.04; filter: brightness(2.6); }
+  100% { scale: 1;    filter: brightness(1); }
+}
+
+/* ---------- 2층: 어둠 ---------- */
+
+.veil {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  /* 이 층은 그림일 뿐이다. 클릭·선택은 아래 진짜 글이 받아야 한다. */
+  pointer-events: none;
+}
+
+/* ---------- 4층: 숫자판 ---------- */
+
+.hud {
+  position: fixed;
+  z-index: 4;
+  left: var(--space-8);
+  bottom: var(--space-8);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  pointer-events: none;
+  transition: opacity var(--duration-slow) var(--ease-out);
+}
+.room[data-phase='flash'] .hud,
+.room[data-phase='revealed'] .hud { opacity: 0; }
+
+.count {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  letter-spacing: var(--tracking-wide);
+  color: var(--color-dim);
+}
+.count b { color: var(--color-beam); font-weight: var(--weight-medium); }
+
+.dots { display: flex; gap: var(--space-1); }
+.dot, .dotOn {
+  width: 5px; height: 5px;
+  border-radius: var(--radius-full);
+  background: #2a2a28;
+}
+.dotOn {
+  background: var(--color-found);
+  box-shadow: 0 0 8px var(--color-found);
+}
+
+.hint {
+  position: fixed;
+  z-index: 4;
+  left: 50%; bottom: var(--space-16);
+  translate: -50% 0;
+  font-size: var(--text-sm);
+  letter-spacing: var(--tracking-wide);
+  color: var(--color-dim);
+  pointer-events: none;
+  animation: breathe 2.6s ease-in-out infinite;
+}
+@keyframes breathe { 0%, 100% { opacity: 0.35 } 50% { opacity: 0.9 } }
+
+/* 불이 켜지고 나면 방은 물러난다.
+   남겨 두면 랜딩 양옆으로 비어져 나와 지저분하다. */
+.room[data-phase='revealed'] {
+  opacity: 0;
+  pointer-events: none;
+  cursor: auto;
+  transition: opacity var(--duration-slow) var(--ease-out) 400ms;
+}
+
+/* ---------- 마무리: 빛이 화면을 삼킨다 ---------- */
+
+.flash {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 50%,
+    var(--color-beam-hot) 0%, var(--color-beam) 40%, transparent 72%);
+  animation: burst 1.5s var(--ease-out) both;
+}
+@keyframes burst {
+  0%   { opacity: 0; scale: 0.15; }
+  18%  { opacity: 1; scale: 1.6; }
+  46%  { opacity: 1; scale: 2.2; }
+  100% { opacity: 0; scale: 3.2; }
+}
+
+/* ---------- 화면 낭독기 전용 ---------- */
+
+.sr {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---------- 움직임 줄이기 ----------
+   방을 못 찾을 정도로 어둡게 두면 접근성이 아니라 배제다.
+   설정이 켜져 있으면 처음부터 다 보이게 한다. */
+@media (prefers-reduced-motion: reduce) {
+  .veil { display: none; }
+  .secret { z-index: 3; }
+  .flash { animation: none; opacity: 0; }
+  .hint { animation: none; opacity: 0.7; }
+}
+
+/* WebGL 이 없을 때. 어둠이 없으면 게임도 없으니 다 보여 주고 그렇게 말한다. */
+.room[data-failed] .secret { z-index: 3; }
+.failed {
+  position: fixed;
+  z-index: 4;
+  left: 50%; top: var(--space-6);
+  translate: -50% 0;
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--color-dim);
+  border: 1px solid #22262e;
+  border-radius: var(--radius-full);
+}
