@@ -66,6 +66,8 @@ export default function DarkRoom() {
           마우스를 처음 움직이면 사라진다 — 읽었다는 뜻이므로. */}
       {phase === 'hunting' && (
         <div className={s.intro} data-gone={!idle || undefined}>
+          {/* 글 뒤로 번지는 잉크. 상자가 아니라 얼룩이라 테두리가 없다. */}
+          <span className={s.ink} aria-hidden="true" />
           <p className={s.introKicker}>쓸모없지만 화려하죠? · 02</p>
           <h1 className={s.introTitle}>어둠 속 손전등</h1>
           <p className={s.introBody}>
@@ -85,8 +87,11 @@ export default function DarkRoom() {
           어둠 속에서 스쳐 읽은 글을 놓쳤을 수 있으므로. */}
       {last && phase === 'hunting' && (
         <div key={last.id} className={s.toast} role="status">
+          <span className={s.toastBar} aria-hidden="true" />
           <p className={s.toastCount}>
-            발견 <b>{String(found.length).padStart(2, '0')}</b> / {total}
+            <span className={s.toastTag}>FOUND</span>
+            <b>{String(found.length).padStart(2, '0')}</b>
+            <i>/ {String(total).padStart(2, '0')}</i>
           </p>
           <p className={s.toastLine}>{last.line}</p>
           {last.sub && <p className={s.toastSub}>{last.sub}</p>}
@@ -121,6 +126,24 @@ export default function DarkRoom() {
       )}
 
       {phase !== 'hunting' && <div className={s.flash} aria-hidden="true" />}
+
+      {/* 잉크 얼룩의 들쭉날쭉한 가장자리.
+          feTurbulence 로 잡음을 만들고 feDisplacementMap 으로 그 잡음만큼
+          픽셀을 밀어낸다. 매끈한 원이 번진 얼룩이 된다.
+          CSS 만으로는 이 불규칙한 윤곽을 못 만든다.
+
+          ⚠️ color-interpolation-filters="sRGB" 가 반드시 필요하다.
+          SVG 필터의 기본값은 linearRGB 다. 반투명한 가장자리에서
+          알파를 풀었다가 다시 곱하는 과정에 색이 튀어서,
+          얼룩 둘레에 자홍·노랑 테가 생긴다. 실제로 그렇게 나왔다. */}
+      <svg width="0" height="0" aria-hidden="true" focusable="false">
+        <filter id="inkEdge" x="-30%" y="-30%" width="160%" height="160%"
+          colorInterpolationFilters="sRGB">
+          <feTurbulence type="fractalNoise" baseFrequency="0.006" numOctaves="4" seed="11" result="n" />
+          <feDisplacementMap in="SourceGraphic" in2="n" scale="46"
+            xChannelSelector="R" yChannelSelector="G" />
+        </filter>
+      </svg>
     </div>
 
     {phase === 'revealed' && <Landing />}
