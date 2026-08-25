@@ -64,25 +64,28 @@ function cssRgb(name: string): [number, number, number] {
   return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255]
 }
 
-/* ?found=8 로 끝 장면만 따로 볼 수 있다.
-   매번 여덟 개를 손으로 찾아야 하면 마무리 연출을 못 고친다.
+/* ?found=N 으로 N 개를 찾은 상태에서 시작한다.
+   N 이 여덟이면 마무리 연출까지 건너뛴다.
+   매번 손으로 여덟 개를 찾아야 하면 알림이나 마무리를 못 고친다.
 
    ⚠️ 이 판정을 효과(useEffect) 안에서 하고 setState 하면 안 된다.
    그러면 "어두운 방"으로 한 번 그린 뒤 곧바로 "다 찾음"으로 다시 그린다 —
    화면이 한 번 번쩍인다. 처음 상태를 만들 때 바로 정하면 그럴 일이 없다. */
-function skipToEnd() {
-  return Number(new URLSearchParams(location.search).get('found') ?? 0) >= SECRETS.length
+function preFound() {
+  const n = Number(new URLSearchParams(location.search).get('found') ?? 0)
+  return SECRETS.slice(0, Math.max(0, Math.min(SECRETS.length, n))).map((s) => s.id)
 }
 
 export function useDarkRoom(canvasRef: React.RefObject<HTMLCanvasElement | null>) {
-  const [found, setFound] = useState<string[]>(() => (skipToEnd() ? SECRETS.map((s) => s.id) : []))
-  const [phase, setPhase] = useState<Phase>(() => (skipToEnd() ? 'revealed' : 'hunting'))
+  const [found, setFound] = useState<string[]>(preFound)
+  const [phase, setPhase] = useState<Phase>(() =>
+    preFound().length >= SECRETS.length ? 'revealed' : 'hunting')
   /** 아직 한 번도 안 움직였나 — 안내를 띄울지 정한다 */
   const [idle, setIdle] = useState(true)
   const [failed, setFailed] = useState<string | null>(null)
 
-  const foundRef = useRef<Set<string>>(new Set(skipToEnd() ? SECRETS.map((s) => s.id) : []))
-  const phaseRef = useRef<Phase>(skipToEnd() ? 'revealed' : 'hunting')
+  const foundRef = useRef<Set<string>>(new Set(preFound()))
+  const phaseRef = useRef<Phase>(preFound().length >= SECRETS.length ? 'revealed' : 'hunting')
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -191,14 +194,14 @@ export function useDarkRoom(canvasRef: React.RefObject<HTMLCanvasElement | null>
         rot: ((p.tilt ?? 0) * Math.PI) / 180,
       }))
 
-      const hotR = unit * 0.11, spillR = unit * 0.34
+      const hotR = unit * 0.11, spillR = unit * 0.30
 
       /** 셰이더와 같은 감쇠식. 두 곳이 어긋나면 잔상이 빛과 다른 자리에 남는다. */
       const attenAt = (px: number, py: number) => {
         const d = Math.hypot(px - light.x, py - light.y)
         const hot = 1 / (1 + Math.pow(d / hotR, 2.1))
-        const spill = 1 / (1 + Math.pow(d / spillR, 1.9))
-        return Math.min(1, hot * 0.86 + spill * 0.34) * battery
+        const spill = 1 / (1 + Math.pow(d / spillR, 2.1))
+        return Math.min(1, hot * 0.82 + spill * 0.26) * battery
       }
       const shadowed = (px: number, py: number) => {
         for (const p of props) if (blocked(px, py, light.x, light.y, p)) return true

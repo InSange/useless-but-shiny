@@ -1,12 +1,14 @@
 import { useEffect } from 'react'
+import { SECRETS } from '../dark/room'
 import s from './landing.module.css'
 
 /* 불이 켜진 뒤 나오는 진짜 페이지. */
 
-const LINES = [
-  '여기 아무것도 없다', '고 생각했겠지', '빛은 정직하다', '비춘 만큼만 보인다',
-  '기억은 아니다', '금방 흐려진다', '읽으려면 멈춰야 하고', '멈추면 뒤가 사라진다',
-]
+/* ⚠️ 손으로 베껴 두지 않는다.
+   처음엔 여덟 줄을 여기 그대로 적어 뒀는데, room.ts 의 글을 고치자
+   조용히 어긋났다 (게다가 앞 다섯 개의 line+sub 만 들어가 있었다).
+   출처는 한 곳이어야 한다. */
+const LINES = SECRETS.map((s) => [s.line, s.sub].filter(Boolean).join(' · '))
 
 export default function Landing() {
   useEffect(() => {
@@ -24,12 +26,12 @@ export default function Landing() {
         <h1 className={s.title}>불을 켰다</h1>
         <p className={s.lede}>
           방에는 여덟 조각의 글과, 빛을 막던 물건 여섯 개가 있었다.
-          찾는 데 걸린 시간만큼 아무 쓸모도 없었다.
+          전부 찾는 데 쓴 시간만큼, 아무 쓸모도 없었다.
         </p>
       </section>
 
       <section className={s.block}>
-        <h2 className={s.h2}>찾은 것을 이어 붙이면</h2>
+        <h2 className={s.h2}>찾은 것을 순서대로</h2>
         <ol className={s.lines}>
           {LINES.map((l, i) => (
             <li key={i} style={{ '--i': i } as React.CSSProperties}>{l}</li>

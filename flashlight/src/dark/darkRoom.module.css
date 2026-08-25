@@ -29,9 +29,9 @@
   background-color: var(--color-wall);
   background-image:
     /* 굵은 얼룩 — 콘크리트의 물자국 */
-    radial-gradient(70% 55% at 18% 26%, #3a342c 0%, transparent 60%),
-    radial-gradient(55% 45% at 76% 72%, #211d19 0%, transparent 58%),
-    radial-gradient(40% 60% at 52% 12%, #363029 0%, transparent 62%),
+    radial-gradient(70% 55% at 18% 26%, #2e2921 0%, transparent 60%),
+    radial-gradient(55% 45% at 76% 72%, #1a1713 0%, transparent 58%),
+    radial-gradient(40% 60% at 52% 12%, #2a251e 0%, transparent 62%),
     /* 타일 줄눈 — 빛이 스칠 때 방향감이 생긴다 */
     repeating-linear-gradient(to right,  #0000 0 118px, #00000070 118px 120px),
     repeating-linear-gradient(to bottom, #0000 0 118px, #00000070 118px 120px);
@@ -183,26 +183,162 @@
   box-shadow: 0 0 8px var(--color-found);
 }
 
-.hint {
+/* ---------- 4층: 시작 안내 ----------
+   들어오자마자 캄캄한 화면만 있으면 "고장 났나?" 싶다.
+   규칙을 모르면 게임이 아니라 그냥 검은 화면이다.
+   빛으로 찾아 읽게 만들면 안 된다 — 규칙 자체를 못 찾으니까. */
+
+.intro {
   position: fixed;
   z-index: 4;
-  left: 50%; bottom: var(--space-16);
-  translate: -50% 0;
-  font-size: var(--text-sm);
-  letter-spacing: var(--tracking-wide);
-  color: var(--color-dim);
+  left: 50%; top: 50%;
+  translate: -50% -50%;
+  width: min(30rem, calc(100vw - var(--space-8)));
+  padding: var(--space-8);
+  text-align: center;
   pointer-events: none;
+
+  border: 1px solid #2a2620;
+  border-radius: var(--radius-md);
+  background: #0a0c11ee;
+  /* 종이가 아니라 "어둠 속에 떠 있는 것"으로 보이게 — 뒤가 살짝 비친다 */
+  backdrop-filter: blur(6px);
+  box-shadow: 0 24px 60px #000a;
+
+  /* ⚠️ fill-mode 는 backwards 여야 한다. both 로 두면 애니메이션이 끝난 뒤에도
+     마지막 프레임(opacity: 1)을 계속 붙잡는다. 그리고 **애니메이션은 일반 선언을
+     이기므로** 아래 .intro[data-gone] 의 opacity: 0 이 통째로 무시된다 —
+     마우스를 움직여도 카드가 안 사라졌다.
+     backwards 는 "시작 전"만 책임지고 끝나면 손을 뗀다. */
+  animation: introIn var(--duration-slow) var(--ease-out) 300ms backwards;
+}
+
+/* 마우스를 처음 움직이면 사라진다 — 읽었다는 뜻이므로.
+   버튼을 두면 "닫기"를 눌러야 시작되는데, 그 클릭이 군더더기다. */
+.intro[data-gone] {
+  opacity: 0;
+  scale: 0.98;
+  transition: opacity var(--duration-slow) var(--ease-in),
+              scale var(--duration-slow) var(--ease-in);
+}
+
+@keyframes introIn {
+  from { opacity: 0; scale: 0.96; }
+  to   { opacity: 1; scale: 1; }
+}
+
+.introKicker {
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-wide);
+  color: var(--color-beam);
+}
+
+.introTitle {
+  margin-top: var(--space-3);
+  font-size: var(--text-2xl);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-beam-hot);
+}
+
+.introBody {
+  margin-top: var(--space-4);
+  font-size: var(--text-sm);
+  line-height: var(--leading-loose);
+  color: var(--color-text);
+}
+
+.introRules {
+  margin-top: var(--space-6);
+  display: grid;
+  gap: var(--space-2);
+  list-style: none;
+  text-align: left;
+  font-size: var(--text-sm);
+  color: var(--color-dim);
+}
+.introRules li { padding-left: var(--space-4); position: relative; }
+.introRules li::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0.62em;
+  width: 5px; height: 5px;
+  border-radius: var(--radius-full);
+  background: var(--color-beam);
+  opacity: 0.6;
+}
+.introRules b { color: var(--color-text); font-weight: var(--weight-medium); }
+
+.introGo {
+  margin-top: var(--space-6);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-wide);
+  color: var(--color-beam);
   animation: breathe 2.6s ease-in-out infinite;
 }
-@keyframes breathe { 0%, 100% { opacity: 0.35 } 50% { opacity: 0.9 } }
+@keyframes breathe { 0%, 100% { opacity: 0.45 } 50% { opacity: 1 } }
 
-/* 불이 켜지고 나면 방은 물러난다.
-   남겨 두면 랜딩 양옆으로 비어져 나와 지저분하다. */
-.room[data-phase='revealed'] {
-  opacity: 0;
+/* ---------- 4층: 발견 알림 ----------
+   어둠 속에서 스쳐 읽은 글을 놓쳤을 수 있다. 찾은 순간 한 번 더 보여 준다.
+   key 가 조각 id 라서 새로 찾을 때마다 요소가 새로 만들어지고,
+   그래서 애니메이션이 처음부터 다시 돈다. */
+
+.toast {
+  position: fixed;
+  z-index: 4;
+  /* ⚠️ 위쪽 가운데에 뒀다가 숨긴 글 하나를 정통으로 가렸다.
+     방금 찾은 것을 알림이 가리면 최악이다.
+     아래 오른쪽은 비어 있고, 왼쪽 숫자판과 짝이 맞는다. */
+  right: var(--space-8); bottom: var(--space-8);
+  width: min(23rem, calc(100vw - var(--space-16)));
+  padding: var(--space-4) var(--space-6);
   pointer-events: none;
-  cursor: auto;
-  transition: opacity var(--duration-slow) var(--ease-out) 400ms;
+
+  border: 1px solid #2a3a35;
+  border-left: 2px solid var(--color-found);
+  border-radius: var(--radius-md);
+  background: #0a0f0dee;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 16px 40px #000a;
+
+  animation: toastIn 4.2s var(--ease-out) both;
+}
+
+/* 들어왔다 머물렀다 나간다. 한 애니메이션 안에서 세 구간으로 나눈다 —
+   따로 만들면 나가는 시점을 자바스크립트가 세야 한다. */
+@keyframes toastIn {
+  0%       { opacity: 0; translate: 0 12px; }
+  8%, 78%  { opacity: 1; translate: 0 0; }
+  100%     { opacity: 0; translate: 0 6px; }
+}
+
+.toastCount {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-wide);
+  color: var(--color-dim);
+}
+.toastCount b { color: var(--color-found); font-weight: var(--weight-medium); }
+
+.toastLine {
+  margin-top: var(--space-2);
+  font-size: var(--text-lg);
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-tight);
+  color: var(--color-beam-hot);
+}
+.toastSub {
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--color-dim);
+}
+.toastNote {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid #1c2320;
+  font-size: var(--text-xs);
+  line-height: var(--leading-loose);
+  color: var(--color-dim);
 }
 
 /* ---------- 마무리: 빛이 화면을 삼킨다 ---------- */
@@ -240,7 +376,6 @@
   .veil { display: none; }
   .secret { z-index: 3; }
   .flash { animation: none; opacity: 0; }
-  .hint { animation: none; opacity: 0.7; }
 }
 
 /* WebGL 이 없을 때. 어둠이 없으면 게임도 없으니 다 보여 주고 그렇게 말한다. */

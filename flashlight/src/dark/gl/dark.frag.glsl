@@ -100,8 +100,8 @@ void main() {
   float unit = min(uRes.x, uRes.y);
   float d = length(p - uLight);
   float hot   = 1.0 / (1.0 + pow(d / (unit * 0.11), 2.1));
-  float spill = 1.0 / (1.0 + pow(d / (unit * 0.34), 1.9));
-  float atten = clamp(hot * 0.86 + spill * 0.34, 0.0, 1.0);
+  float spill = 1.0 / (1.0 + pow(d / (unit * 0.30), 2.1));
+  float atten = clamp(hot * 0.82 + spill * 0.26, 0.0, 1.0);
 
   atten *= uBattery;
 
