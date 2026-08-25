@@ -23,15 +23,17 @@ const MEM_HALFLIFE = 2.6
 
 /** 발견으로 치는 밝기 문턱.
 
-    ⚠️ 이 숫자가 곧 **반지름**이다. 감쇠식에 넣고 풀면:
+    ⚠️ 이 숫자가 곧 **반지름**이다. 감쇠식에 넣고 풀어야 몇 px 인지 나온다.
+    그래서 빛이 바뀌면 이 숫자도 같이 바뀌어야 한다.
 
-        문턱 0.35 → 158px    문턱 0.62 → 88px
-        문턱 0.50 → 112px    문턱 0.70 → 74px
+    처음(넓은 빛):   문턱 0.35 → 158px   ← 훑기만 해도 발견됐다
+                     문턱 0.62 →  88px   ← 이걸로 고쳤다
+    지금(좁힌 빛):   문턱 0.62 →  67px   ← 그대로 두면 더 어려워진다
+                     문턱 0.50 →  84px   ← 그래서 여기로 내렸다
 
-    0.35 로 뒀더니 커서에서 158px 떨어진 것까지 차올랐다.
-    화면을 훑기만 해도 시야에 없는 것이 발견된다.
-    88px 이면 손전등의 밝은 중심에 **올려놔야** 진행된다. */
-const FIND_THRESHOLD = 0.62
+    빛을 좁히는 것과 찾기 어렵게 만드는 것은 다른 일이다.
+    난이도는 그대로 두고 빛만 좁힌다. */
+const FIND_THRESHOLD = 0.50
 
 type Ctx = CanvasRenderingContext2D | null
 
@@ -213,14 +215,14 @@ export function useDarkRoom(canvasRef: React.RefObject<HTMLCanvasElement | null>
         rot: ((p.tilt ?? 0) * Math.PI) / 180,
       }))
 
-      const hotR = unit * 0.11, spillR = unit * 0.30
+      const hotR = unit * 0.095, spillR = unit * 0.20
 
       /** 셰이더와 같은 감쇠식. 두 곳이 어긋나면 잔상이 빛과 다른 자리에 남는다. */
       const attenAt = (px: number, py: number) => {
         const d = Math.hypot(px - light.x, py - light.y)
-        const hot = 1 / (1 + Math.pow(d / hotR, 2.1))
-        const spill = 1 / (1 + Math.pow(d / spillR, 2.1))
-        return Math.min(1, hot * 0.82 + spill * 0.26) * battery
+        const hot = 1 / (1 + Math.pow(d / hotR, 2.3))
+        const spill = 1 / (1 + Math.pow(d / spillR, 2.4))
+        return Math.min(1, hot * 0.84 + spill * 0.18) * battery
       }
       const shadowed = (px: number, py: number) => {
         for (const p of props) if (blocked(px, py, light.x, light.y, p)) return true

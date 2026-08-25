@@ -99,9 +99,10 @@ void main() {
      세로로 긴 창에서 빛이 화면을 다 덮어 버린다. */
   float unit = min(uRes.x, uRes.y);
   float d = length(p - uLight);
-  float hot   = 1.0 / (1.0 + pow(d / (unit * 0.11), 2.1));
-  float spill = 1.0 / (1.0 + pow(d / (unit * 0.30), 2.1));
-  float atten = clamp(hot * 0.82 + spill * 0.26, 0.0, 1.0);
+  float hot   = 1.0 / (1.0 + pow(d / (unit * 0.095), 2.3));
+  float spill = 1.0 / (1.0 + pow(d / (unit * 0.20),  2.4));
+  float atten = clamp(hot * 0.84 + spill * 0.18, 0.0, 1.0);
+
 
   atten *= uBattery;
 
