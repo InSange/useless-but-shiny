@@ -21,9 +21,11 @@ import s from './darkRoom.module.css'
 
 export default function DarkRoom() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const { found, phase, idle, failed, openClue, closeClue, total } = useDarkRoom(canvasRef)
+  const { found, phase, idle, failed, openClue, showClue, closeClue, justFound, total } =
+    useDarkRoom(canvasRef)
   const foundSet = new Set(found)
   const clue = openClue ? SITES.find((x) => x.id === openClue) : null
+  const shout = justFound ? SITES.find((x) => x.id === justFound) : null
 
   /* ⚠️ 랜딩은 방 **밖**에 둔다.
      방은 position: fixed + overflow: hidden 이다 (화면 한 장짜리 어둠).
@@ -45,20 +47,30 @@ export default function DarkRoom() {
         />
       ))}
 
-      {SITES.map((sec) => (
-        <article
-          key={sec.id}
-          data-secret={sec.id}
-          className={`${s.secret} ${foundSet.has(sec.id) ? s.found : ''}`}
-          data-align={sec.align ?? 'center'}
-          style={{ left: `${sec.x * 100}%`, top: `${sec.y * 100}%` }}
-        >
-          <p className={s.line}>{sec.riddle}</p>
-          {sec.hint && <p className={s.sub}>{sec.hint}</p>}
-          {/* 비추고 있는 동안 차오르는 테두리. --dwell 은 매 프레임 JS 가 쓴다. */}
-          <span className={s.dwellRing} aria-hidden="true" />
-        </article>
-      ))}
+      {SITES.map((sec) => {
+        const got = foundSet.has(sec.id)
+        /* 찾기 전에는 읽을 수만 있는 글, 찾은 뒤에는 누를 수 있는 것.
+           같은 자리에 두 요소를 겹치지 않고 태그 자체를 바꾼다 —
+           키보드로도 Tab 이 "찾은 것"에만 걸린다. */
+        const Tag = got ? 'button' : 'article'
+        return (
+          <Tag
+            key={sec.id}
+            type={got ? 'button' : undefined}
+            data-secret={sec.id}
+            className={`${s.secret} ${got ? s.found : ''}`}
+            data-align={sec.align ?? 'center'}
+            style={{ left: `${sec.x * 100}%`, top: `${sec.y * 100}%` }}
+            onClick={got ? () => showClue(sec.id) : undefined}
+          >
+            <p className={s.line}>{sec.riddle}</p>
+            {sec.hint && <p className={s.sub}>{sec.hint}</p>}
+            {got && <span className={s.openTag}>단서 보기</span>}
+            {/* 비추고 있는 동안 차오르는 테두리. --dwell 은 매 프레임 JS 가 쓴다. */}
+            {!got && <span className={s.dwellRing} aria-hidden="true" />}
+          </Tag>
+        )
+      })}
 
       <canvas ref={canvasRef} className={s.veil} aria-hidden="true" />
 
@@ -78,9 +90,25 @@ export default function DarkRoom() {
           <ul className={s.introRules}>
             <li>비춘 자리는 <b>잠시 남았다 흐려집니다</b></li>
             <li>단서를 <b>0.5초쯤 비추면</b> 발견됩니다</li>
-            <li>찾으면 그것이 가리키는 <b>웹사이트가 열립니다</b></li>
+            <li>찾은 것을 <b>누르면</b> 그것이 가리키는 곳이 열립니다</li>
           </ul>
           <p className={s.introGo}>마우스를 움직이세요</p>
+        </div>
+      )}
+
+      {/* ---------- 발견 알림 ----------
+          카드가 매번 뜨지 않으므로, 찾았다는 것 자체는 여기서 알린다.
+          key 가 조각 id 라서 새로 찾을 때마다 애니메이션이 처음부터 돈다. */}
+      {shout && phase === 'hunting' && (
+        <div key={shout.id} className={s.toast} role="status">
+          <span className={s.splat} aria-hidden="true" />
+          <p className={s.toastTag}>FOUND</p>
+          <p className={s.toastCount}>
+            <b>{String(found.length).padStart(2, '0')}</b>
+            <i>/ {String(total).padStart(2, '0')}</i>
+          </p>
+          <p className={s.toastLine}>{shout.riddle}</p>
+          <p className={s.toastSub}>눌러서 단서를 펼친다</p>
         </div>
       )}
 
@@ -113,7 +141,8 @@ export default function DarkRoom() {
       {clue && (
         <ClueCard
           site={clue}
-          index={found.length}
+          no={SITES.indexOf(clue) + 1}
+          found={found.length}
           total={total}
           onClose={closeClue}
         />
@@ -136,6 +165,14 @@ export default function DarkRoom() {
             xChannelSelector="R" yChannelSelector="G" />
         </filter>
 
+        {/* 튄 물감. 잉크보다 잡음이 곱고 세게 민다 —
+            천천히 스며든 얼룩이 아니라 던져서 부딪힌 자국이라서. */}
+        <filter id="splatEdge" x="-40%" y="-40%" width="180%" height="180%"
+          colorInterpolationFilters="sRGB">
+          <feTurbulence type="fractalNoise" baseFrequency="0.021" numOctaves="3" seed="4" result="n" />
+          <feDisplacementMap in="SourceGraphic" in2="n" scale="34"
+            xChannelSelector="R" yChannelSelector="G" />
+        </filter>
       </svg>
     </div>
 

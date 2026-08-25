@@ -21,8 +21,17 @@ const MEM_COLS = 88
 /** 잔상이 절반으로 흐려지는 데 걸리는 시간(초). */
 const MEM_HALFLIFE = 2.6
 
-/** 발견으로 치는 밝기 문턱. 스치기만 해도 발견되면 싱겁다. */
-const FIND_THRESHOLD = 0.35
+/** 발견으로 치는 밝기 문턱.
+
+    ⚠️ 이 숫자가 곧 **반지름**이다. 감쇠식에 넣고 풀면:
+
+        문턱 0.35 → 158px    문턱 0.62 → 88px
+        문턱 0.50 → 112px    문턱 0.70 → 74px
+
+    0.35 로 뒀더니 커서에서 158px 떨어진 것까지 차올랐다.
+    화면을 훑기만 해도 시야에 없는 것이 발견된다.
+    88px 이면 손전등의 밝은 중심에 **올려놔야** 진행된다. */
+const FIND_THRESHOLD = 0.62
 
 type Ctx = CanvasRenderingContext2D | null
 
@@ -85,6 +94,8 @@ export function useDarkRoom(canvasRef: React.RefObject<HTMLCanvasElement | null>
   const [failed, setFailed] = useState<string | null>(null)
   /** 지금 펼쳐 놓은 단서. 이게 있는 동안 사냥이 멈춘다.
       ?clue=N 으로 N 번째 카드를 바로 펼친다 — 카드를 손보려면 필요하다. */
+  /** 방금 찾은 것. 물감 알림이 이걸 보고 뜬다. */
+  const [justFound, setJustFound] = useState<string | null>(null)
   const [openClue, setOpenClue] = useState<string | null>(() => {
     const n = Number(new URLSearchParams(location.search).get('clue') ?? 0)
     return n >= 1 && n <= SITES.length ? SITES[n - 1].id : null
@@ -243,7 +254,9 @@ export function useDarkRoom(canvasRef: React.RefObject<HTMLCanvasElement | null>
           const px = s.x * W, py = s.y * H
           const lit = attenAt(px, py)
           const ok = lit > FIND_THRESHOLD && !shadowed(px, py)
-          const acc = (dwell.get(s.id) ?? 0) + (ok ? dt : -dt * 1.6)
+          /* 빛을 떼면 되감긴다. 1.6배는 1.1초에 맞추면 너무 매정하다 —
+             잠깐 흔들렸다고 처음부터 다시 하게 만들면 짜증만 난다. */
+          const acc = (dwell.get(s.id) ?? 0) + (ok ? dt : -dt * 0.9)
           dwell.set(s.id, Math.max(0, Math.min(FIND_SECONDS, acc)))
 
           // 찾는 중인 것은 서서히 드러난다 — DOM 에 직접 쓴다 (리렌더 없음)
@@ -251,10 +264,23 @@ export function useDarkRoom(canvasRef: React.RefObject<HTMLCanvasElement | null>
           if (el) el.style.setProperty('--dwell', (dwell.get(s.id)! / FIND_SECONDS).toFixed(3))
 
           if (dwell.get(s.id)! >= FIND_SECONDS) {
+            const first = foundRef.current.size === 0
             foundRef.current.add(s.id)
             setFound([...foundRef.current])
-            pausedRef.current = true          // 카드가 뜬다 → 사냥 정지
-            setOpenClue(s.id)
+            setJustFound(s.id)
+
+            /* ⚠️ 카드는 **첫 발견에만** 저절로 뜬다.
+
+               처음엔 찾을 때마다 띄웠다가 "탐색 중인데 자꾸 모달이 열린다"는
+               소리를 들었다. 맞는 말이다 — 손전등을 들고 둘러보는 맛과
+               8번 멈춰 세우는 것은 서로 방해한다.
+
+               한 번은 띄워야 한다. 안 그러면 단서에 카드가 붙어 있다는 걸
+               아무도 모른다. 그 뒤로는 찾은 글을 눌러서 연다. */
+            if (first) {
+              pausedRef.current = true
+              setOpenClue(s.id)
+            }
             break                             // 한 프레임에 둘을 찾지 않는다
           }
         }
@@ -304,6 +330,13 @@ export function useDarkRoom(canvasRef: React.RefObject<HTMLCanvasElement | null>
 
   /* 카드를 닫으면 사냥이 다시 돈다. 마지막 하나였으면 그때 불이 켜진다 —
      카드를 읽는 도중에 화면이 하얘지면 읽던 것을 뺏기는 셈이다. */
+  /** 찾아 놓은 단서를 눌러서 다시 연다. */
+  const showClue = useCallback((id: string) => {
+    if (!foundRef.current.has(id)) return
+    pausedRef.current = true
+    setOpenClue(id)
+  }, [])
+
   const closeClue = useCallback(() => {
     setOpenClue(null)
     pausedRef.current = false
@@ -313,7 +346,7 @@ export function useDarkRoom(canvasRef: React.RefObject<HTMLCanvasElement | null>
     }
   }, [])
 
-  return { found, phase, idle, failed, openClue, closeClue, total: SITES.length }
+  return { found, phase, idle, failed, openClue, showClue, closeClue, justFound, total: SITES.length }
 }
 
 export type { Ctx }

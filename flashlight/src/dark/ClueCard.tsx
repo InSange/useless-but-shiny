@@ -15,12 +15,15 @@ import s from './clueCard.module.css'
 
 type Props = {
   site: Site
-  index: number
+  /** 이 단서의 고유 번호 (목록에서 몇 번째인가) */
+  no: number
+  /** 지금까지 찾은 개수 */
+  found: number
   total: number
   onClose: () => void
 }
 
-export default function ClueCard({ site, index, total, onClose }: Props) {
+export default function ClueCard({ site, no, found, total, onClose }: Props) {
   const closeRef = useRef<HTMLButtonElement>(null)
   const cardRef = useRef<HTMLDivElement>(null)
 
@@ -57,8 +60,13 @@ export default function ClueCard({ site, index, total, onClose }: Props) {
         aria-labelledby={`clue-${site.id}`}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* ⚠️ 두 숫자를 헷갈리지 않게 나눠 적는다.
+            처음엔 단서 번호 자리에 "찾은 개수"를 넣어 뒀다 —
+            1번 단서를 다시 열었는데 03 이라고 떠서 틀린 게 드러났다. */}
         <p className={s.meta}>
-          확인된 단서 <b>{String(index).padStart(2, '0')}</b> / {String(total).padStart(2, '0')}
+          단서 <b>{String(no).padStart(2, '0')}</b>
+          <span className={s.metaSep}>·</span>
+          확인 {found} / {total}
         </p>
 
         <div className={s.motif} aria-hidden="true"><Motif kind={site.motif} /></div>

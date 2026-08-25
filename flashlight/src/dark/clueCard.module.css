@@ -70,6 +70,7 @@
   font-variant-numeric: tabular-nums;
 }
 .meta b { color: #241f18; font-size: var(--text-sm); }
+.metaSep { margin: 0 var(--space-2); opacity: 0.45; }
 
 /* 그림. currentColor 로만 그려져 있어서 여기서 색이 정해진다. */
 .motif {
