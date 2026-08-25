@@ -8,7 +8,19 @@
   inset: 0;
   overflow: hidden;
   background: var(--color-void);
-  cursor: none;                 /* 커서 자체는 숨긴다 — 빛이 커서다 */
+  /* ---------- 커서 ----------
+     처음엔 cursor: none 으로 숨겼다. 빛이 곧 커서라고 생각해서.
+     그런데 눌러야 하는 것이 생기니 **어디를 겨누는지 보여야** 한다.
+
+     ⚠️ 그림은 두 겹으로 그렸다 — 어두운 테 바깥에 밝은 선.
+     한 겹이면 밝은 빛 웅덩이 위에서 커서가 사라진다.
+     커서는 자기가 놓일 배경을 고를 수 없으므로 대비를 들고 다녀야 한다.
+
+     ⚠️ 뒤의 `crosshair` 는 장식이 아니라 **필수**다.
+     그림을 못 읽는 브라우저(사파리의 일부 판)는 앞을 통째로 버리고
+     이걸 쓴다. 없으면 커서가 사라진 것처럼 보인다.
+     `16 16` 은 그림 안에서 "실제로 겨누는 점"의 좌표다 (32x32 의 한가운데). */
+  cursor: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABPklEQVR42u2XvQrCMBCAfR5fyKFb30BbsA/QybHg1iHgKLgKnbu4ZnPPYxT0Dj5BBKutPznBg29Jk1zuN+lk8styOm688j9ALP2pkEH6LaWlcBB2YvlKWMJKx/hWfkKxWulRlgt7IQgdBMb021LnsuYtshZqNldFjTAXEmEBCWMNc3Jdw9rXlONqR8LNZMwJrVAJBVSM6bwZcx2hWb/i9pqN1LIFSh5Ji1d0jcMTo8LhcbtH+XbA2i2H8IRjcKmWJFzA7e0IA1rCEUjMQdVxwPqGmI+VS/hySvRp2VFW85HWX3tBq2NPn3iuw5H56rqEDL/XiqdKz14VJRqoiLS3p9PXM+LfkXxFj3IH9w5RkIwdeZDd6DJygOghsJaEJsoweiOK3opNXEbRr2MTDxITTzITj1Izz/L/n5GtA7xDzqklcgfMkeadAAAAAElFTkSuQmCC") 16 16, crosshair;
 }
 
 /* ---------- 0층: 벽 ----------
@@ -139,7 +151,8 @@
    "찾았다"를 색이나 글씨가 아니라 **층**으로 표현한 것. */
 .found {
   z-index: 3;
-  cursor: pointer;
+  /* 누를 수 있는 것 위에서는 조준선이 커지고 색이 바뀐다 */
+  cursor: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABaUlEQVR42t2XsW6DMBCGeZ4+TNasKBIvkAwoU5WFBb+DuzBGYsjMEgbmsmXtxMITMPS3+g3pAhRobdXSN2DAd/ffcTZRtGK8ftTvjsjX8O1AIk6Q/JVRK1pRKPJMpJC5Oe7Z3zB8xehe5OIuOjFAx5y7t8eZ6xaGnbw1hkvRCysOIhZHiJmzPFPiSM0ai8aFqM9E6aI7aq4SN2FECoa5Cody3jmjxmVJ5AULPcQOw2bGuwZHdryb48SPlKiJ3C0Q67pZoGBDah4oUc8uOHI+EHmzooYalBioiVmFWVBEObKvHRWpLEnF+HdO9D0FZzZwwFCYPSqM9okWb+1G0T+rYFG1nZLfNZQDn9VW40afuI+lIaG9dlT+pPx67sUxMw0xa2ff9o6nHe1EXx/IfzrD+BtMOZFSB27tFFtfdr074D0FIRVhEJ+h90bkvRUHsRl5346DOJB4P5IFcSgN4lgezI9JML9m/+/v+BOmJHA/qS6KsQAAAABJRU5ErkJggg==") 16 16, pointer;
   animation: pop var(--duration-slow) var(--ease-out) both;
 }
 /* 방 전체가 cursor: none 이라 손 모양으로는 "누를 수 있다"가 안 알려진다.

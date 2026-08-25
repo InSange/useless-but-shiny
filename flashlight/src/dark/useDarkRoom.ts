@@ -177,6 +177,7 @@ export function useDarkRoom(canvasRef: React.RefObject<HTMLCanvasElement | null>
     let last = performance.now()
     let t0 = last
     let boost = 0          // 마무리에 빛이 확 세진다
+    let doneWait = 0       // 다 찾은 뒤 불이 켜지기까지의 한 박자
     let reveal = phaseRef.current === 'revealed' ? 1 : 0
 
     function frame(now: number) {
@@ -264,27 +265,43 @@ export function useDarkRoom(canvasRef: React.RefObject<HTMLCanvasElement | null>
           if (el) el.style.setProperty('--dwell', (dwell.get(s.id)! / FIND_SECONDS).toFixed(3))
 
           if (dwell.get(s.id)! >= FIND_SECONDS) {
-            const first = foundRef.current.size === 0
             foundRef.current.add(s.id)
             setFound([...foundRef.current])
             setJustFound(s.id)
 
-            /* ⚠️ 카드는 **첫 발견에만** 저절로 뜬다.
+            /* ⚠️ 카드는 **저절로 뜨지 않는다.** 언제나 눌러서 연다.
 
-               처음엔 찾을 때마다 띄웠다가 "탐색 중인데 자꾸 모달이 열린다"는
-               소리를 들었다. 맞는 말이다 — 손전등을 들고 둘러보는 맛과
-               8번 멈춰 세우는 것은 서로 방해한다.
+               처음엔 찾을 때마다 띄웠고, 그다음엔 첫 발견에만 띄웠다.
+               둘 다 같은 이유로 걸린다 — 손전등을 들고 둘러보는 흐름과
+               화면을 멈춰 세우는 것은 서로 방해한다.
+               사람이 "지금 읽겠다"고 정할 때만 멈춰야 한다.
 
-               한 번은 띄워야 한다. 안 그러면 단서에 카드가 붙어 있다는 걸
-               아무도 모른다. 그 뒤로는 찾은 글을 눌러서 연다. */
-            if (first) {
-              pausedRef.current = true
-              setOpenClue(s.id)
-            }
+               대신 카드가 있다는 사실은 세 곳에서 알린다:
+                 · 시작 안내의 규칙 한 줄
+                 · 찾은 순간 뜨는 물감 알림 ("눌러서 펼친다")
+                 · 찾은 글에 붙는 "단서 보기" 라벨 */
             break                             // 한 프레임에 둘을 찾지 않는다
           }
         }
 
+      }
+
+      /* --- 다 찾았나 ---
+         ⚠️ 이 판정이 한때 "카드를 닫을 때"에만 붙어 있었다.
+         카드가 저절로 뜨던 시절에는 그게 맞았지만, 눌러서 여는 방식으로
+         바꾸자 마지막 하나를 찾아도 아무 일이 안 일어났다.
+         이제 매 프레임 본다 — 단, 카드를 펼쳐 놓은 동안은 기다린다.
+
+         곧바로 켜지 않고 한 박자 둔다. 여덟 번째 알림이 "08 / 08"을
+         보여 주기도 전에 화면이 하얘지면 끝낸 실감이 안 난다. */
+      if (phaseRef.current === 'hunting'
+          && foundRef.current.size >= SITES.length
+          && !pausedRef.current) {
+        doneWait += dt
+        if (doneWait > 1.6) {
+          phaseRef.current = 'flash'
+          setPhase('flash')
+        }
       }
 
       // --- 마무리: 빛이 세지고 어둠이 걷힌다 ---

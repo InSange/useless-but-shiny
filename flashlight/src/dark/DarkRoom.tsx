@@ -109,6 +109,11 @@ export default function DarkRoom() {
           </p>
           <p className={s.toastLine}>{shout.riddle}</p>
           <p className={s.toastSub}>눌러서 단서를 펼친다</p>
+          {found.length === 1 && (
+            <p className={s.toastNote}>
+              찾은 것은 계속 밝습니다. 언제든 다시 눌러 읽을 수 있습니다.
+            </p>
+          )}
         </div>
       )}
 
