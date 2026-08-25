@@ -23,6 +23,7 @@ export type Frame = {
   lightY: number
   battery: number     // 0~1
   reveal: number      // 0~1
+  memWeight: number   // 잔상이 실물보다 얼마나 어두운가
   props: PropBox[]
   /** 기억 격자 (0~255). 길이는 memW * memH */
   memory: Uint8Array
@@ -82,7 +83,7 @@ export function createRenderer(canvas: HTMLCanvasElement) {
   const u = (n: string) => g.getUniformLocation(prog, n)
   const loc = {
     res: u('uRes'), light: u('uLight'), time: u('uTime'),
-    battery: u('uBattery'), reveal: u('uReveal'),
+    battery: u('uBattery'), reveal: u('uReveal'), memWeight: u('uMemWeight'),
     props: u('uProps[0]'), propRot: u('uPropRot[0]'),
     memory: u('uMemory'), void: u('uVoid'), beam: u('uBeam'),
   }
@@ -141,6 +142,7 @@ export function createRenderer(canvas: HTMLCanvasElement) {
     g.uniform1f(loc.time, f.time)
     g.uniform1f(loc.battery, f.battery)
     g.uniform1f(loc.reveal, f.reveal)
+    g.uniform1f(loc.memWeight, f.memWeight)
     g.uniform3fv(loc.void, f.voidColor)
     g.uniform3fv(loc.beam, f.beamColor)
 

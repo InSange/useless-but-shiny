@@ -23,6 +23,10 @@ uniform vec4  uProps[MAX_PROPS];    // 빛을 막는 것 (cx, cy, 반폭, 반높
 uniform float uPropRot[MAX_PROPS];  // 기울기(라디안)
 
 uniform sampler2D uMemory;   // 빛이 닿았던 기억 (저해상도)
+/* 잔상이 실물보다 얼마나 어두운가.
+   ⚠️ 셰이더에 0.62 로 박아 뒀다가 자바스크립트 쪽 감쇠 시간과 따로 놀았다.
+   한 곳(useDarkRoom.ts)에서 정해 넘긴다. */
+uniform float uMemWeight;
 
 uniform vec3  uVoid;         // 어둠의 색
 uniform vec3  uBeam;         // 빛의 색
@@ -114,7 +118,7 @@ void main() {
      한번 비춘 자리는 잔상으로 남았다 천천히 사라진다.
      지금 빛보다 항상 어둡다 — 안 그러면 기억이 실물처럼 보인다. */
   float mem = texture2D(uMemory, uv).r;
-  float bright = max(lit, mem * 0.62);
+  float bright = max(lit, mem * uMemWeight);
 
   /* --- 공기 중의 먼지 ---
      빛이 통과하는 공간 자체가 살짝 뿌옇다. 이게 없으면

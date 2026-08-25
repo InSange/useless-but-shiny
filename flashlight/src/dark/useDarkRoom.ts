@@ -18,8 +18,18 @@ export type Phase = 'hunting' | 'flash' | 'revealed'
    높이면 매 프레임 도는 반복문이 제곱으로 늘어난다. */
 const MEM_COLS = 88
 
-/** 잔상이 절반으로 흐려지는 데 걸리는 시간(초). */
-const MEM_HALFLIFE = 2.6
+/** 잔상이 절반으로 흐려지는 데 걸리는 시간(초).
+
+    ⚠️ 2.6 으로 뒀다가 "지나온 부분들이 흐리게 보인다"는 소리를 들었다.
+    맞다. 아래 MEM_WEIGHT 와 곱해 보면 8초가 지나도 0.073 이 남아 있었다 —
+    방을 한 바퀴 훑으면 지나온 길이 전부 지도처럼 남는다.
+    그러면 어두운 방이 아니라 그냥 "천천히 켜지는 방"이다.
+
+    0.40 이면 1.5초쯤에 사라진다. 빛이 움직인 자국이 잠깐 끌리는 정도. */
+const MEM_HALFLIFE = 0.40
+
+/** 잔상이 실물보다 얼마나 어두운가. 1 이면 기억이 실물처럼 보인다. */
+const MEM_WEIGHT = 0.30
 
 /** 발견으로 치는 밝기 문턱.
 
@@ -184,7 +194,10 @@ export function useDarkRoom(canvasRef: React.RefObject<HTMLCanvasElement | null>
 
     function frame(now: number) {
       raf = requestAnimationFrame(frame)
-      const dt = Math.min((now - last) / 1000, 0.05)   // 탭 복귀 시 한 번에 튀는 것 방지
+      const raw = (now - last) / 1000
+      /* 움직임과 발견 판정은 한 번에 튀면 안 되므로 잘라 쓴다.
+         (탭이 뒤에 있다 돌아오면 raw 가 몇 초씩 된다) */
+      const dt = Math.min(raw, 0.05)
       last = now
       const time = (now - t0) / 1000
 
@@ -230,7 +243,13 @@ export function useDarkRoom(canvasRef: React.RefObject<HTMLCanvasElement | null>
       }
 
       // --- 기억 갱신 ---
-      const decay = Math.pow(0.5, dt / MEM_HALFLIFE)
+      /* ⚠️ 잔상만은 **자르지 않은** 시간으로 지운다.
+
+         dt 로 지우면 프레임이 밀릴 때 잔상도 같이 느려진다 — 화면이 버벅이는
+         기계에서 지나온 자리가 더 오래 남는다는 뜻이다. 그건 틀렸다.
+         "0.4초마다 절반"은 벽시계 기준이어야 한다.
+         튈 걱정도 없다. 오래 자리를 비웠으면 다 지워지는 게 맞으니까. */
+      const decay = Math.pow(0.5, raw / MEM_HALFLIFE)
       for (let r = 0; r < memH; r++) {
         const py = ((r + 0.5) / memH) * H
         for (let c = 0; c < memW; c++) {
@@ -332,7 +351,7 @@ export function useDarkRoom(canvasRef: React.RefObject<HTMLCanvasElement | null>
 
       renderer.render({
         time, lightX: light.x, lightY: light.y,
-        battery, reveal, props,
+        battery, reveal, memWeight: MEM_WEIGHT, props,
         memory: memBytes, memW, memH,
         voidColor, beamColor,
       })

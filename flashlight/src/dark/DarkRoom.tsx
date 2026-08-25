@@ -88,7 +88,7 @@ export default function DarkRoom() {
             커서가 손전등입니다. 이 방에 단서 여덟 개가 숨어 있습니다.
           </p>
           <ul className={s.introRules}>
-            <li>비춘 자리는 <b>잠시 남았다 흐려집니다</b></li>
+            <li>비춘 자리는 <b>곧 어둠이 도로 삼킵니다</b></li>
             <li>단서를 <b>0.5초쯤 비추면</b> 발견됩니다</li>
             <li>찾은 것을 <b>누르면</b> 그것이 가리키는 곳이 열립니다</li>
           </ul>
