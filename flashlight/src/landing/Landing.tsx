@@ -1,14 +1,8 @@
 import { useEffect } from 'react'
-import { SECRETS } from '../dark/room'
+import { SITES } from '../dark/sites'
 import s from './landing.module.css'
 
 /* 불이 켜진 뒤 나오는 진짜 페이지. */
-
-/* ⚠️ 손으로 베껴 두지 않는다.
-   처음엔 여덟 줄을 여기 그대로 적어 뒀는데, room.ts 의 글을 고치자
-   조용히 어긋났다 (게다가 앞 다섯 개의 line+sub 만 들어가 있었다).
-   출처는 한 곳이어야 한다. */
-const LINES = SECRETS.map((s) => [s.line, s.sub].filter(Boolean).join(' · '))
 
 export default function Landing() {
   useEffect(() => {
@@ -25,16 +19,23 @@ export default function Landing() {
         <p className={s.eyebrow}>쓸모없지만 화려하죠?</p>
         <h1 className={s.title}>불을 켰다</h1>
         <p className={s.lede}>
-          방에는 여덟 조각의 글과, 빛을 막던 물건 여섯 개가 있었다.
-          전부 찾는 데 쓴 시간만큼, 아무 쓸모도 없었다.
+          단서 여덟 개는 전부 실제로 가 볼 수 있는 곳이다.
+          하나같이 쓸모가 없고, 하나같이 오래 붙잡는다.
         </p>
       </section>
 
       <section className={s.block}>
-        <h2 className={s.h2}>찾은 것을 순서대로</h2>
+        <h2 className={s.h2}>찾은 것 여덟</h2>
+        {/* ⚠️ 목록을 손으로 베껴 두지 않는다. 출처는 sites.ts 한 곳이다.
+            예전에 베껴 뒀다가 방 안의 글을 고치자 조용히 어긋났다. */}
         <ol className={s.lines}>
-          {LINES.map((l, i) => (
-            <li key={i} style={{ '--i': i } as React.CSSProperties}>{l}</li>
+          {SITES.map((site, i) => (
+            <li key={site.id} style={{ '--i': i } as React.CSSProperties}>
+              <a href={site.url} target="_blank" rel="noopener noreferrer">
+                <b>{site.name}</b>
+                <span>{site.what}</span>
+              </a>
+            </li>
           ))}
         </ol>
       </section>
@@ -46,6 +47,7 @@ export default function Landing() {
           <div><dt>그림자</dt><dd>픽셀마다 빛을 향해 걸어가며 물체를 얼마나 스쳤는지 잰다. 스칠수록 흐려져 반그림자가 생긴다</dd></div>
           <div><dt>기억</dt><dd>88칸짜리 격자에 빛이 닿은 세기를 적어 두고 2.6초마다 절반씩 지운다</dd></div>
           <div><dt>글</dt><dd>처음부터 끝까지 진짜 HTML. 어둠에 가려 있어도 복사되고 검색되고 낭독된다</dd></div>
+          <div><dt>그림</dt><dd>단서 카드의 그림 여덟 장은 SVG 로 직접 그렸다. 남의 화면을 퍼오지 않고, 저장소에 그림 파일도 안 쌓인다</dd></div>
         </dl>
       </section>
 

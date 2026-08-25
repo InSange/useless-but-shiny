@@ -1,0 +1,180 @@
+/* ============================================================
+   단서 카드 — 어두운 방에서 주워 든 종이 한 장.
+
+   참고 이미지(게임의 단서 화면)처럼 **종이**로 만든다.
+   방은 검고 차갑고, 종이는 밝고 따뜻하다. 그 대비가 "주웠다"를 만든다.
+   ============================================================ */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 8;
+  display: grid;
+  place-items: center;
+  padding: var(--space-6);
+  /* 방을 완전히 덮지 않는다. 가장자리로 어둠이 남아 있어야
+     "방 안에서 들여다보는 중"으로 보인다 */
+  background: radial-gradient(60% 60% at 50% 50%, #000000cc 0%, #000000f0 100%);
+  animation: fadeIn var(--duration-base) var(--ease-out) backwards;
+}
+
+@keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+
+.card {
+  position: relative;
+  width: min(34rem, 100%);
+  max-height: calc(100dvh - var(--space-12));
+  overflow-y: auto;
+  padding: var(--space-6) var(--space-8);
+  text-align: center;
+
+  /* ⚠️ 한글은 이것 없이는 조판이 안 된다.
+     기본값(normal)은 한글을 "어디서든 끊어도 되는 글자"로 본다 —
+     '생물이'가 '생물' / '이' 로 갈라진다.
+     keep-all 은 띄어쓰기에서만 끊는다. 대신 긴 영문 주소가 넘칠 수 있어
+     그런 곳(.url)에만 따로 풀어 준다. */
+  word-break: keep-all;
+
+  /* 종이. 균일한 베이지는 인쇄물처럼 보인다 —
+     얼룩과 결이 있어야 오래된 종이가 된다. */
+  color: #241f18;
+  background-color: #e6ddcb;
+  background-image:
+    radial-gradient(80% 60% at 22% 12%, #f2ebdb 0%, transparent 55%),
+    radial-gradient(70% 55% at 82% 88%, #d9cfba 0%, transparent 58%),
+    radial-gradient(52% 44% at 66% 30%, #d5c9b0 0%, transparent 78%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23p)' opacity='0.4'/%3E%3C/svg%3E");
+  background-blend-mode: normal, normal, multiply, overlay;
+
+  /* 반듯한 직사각형은 인쇄물이고, 살짝 어긋나야 찢어 낸 종이가 된다 */
+  clip-path: polygon(
+    0.4% 1.2%, 99.2% 0%, 100% 98.6%, 0.8% 100%
+  );
+  rotate: -0.4deg;
+  box-shadow: 0 30px 70px #000000b3;
+
+  animation: pickUp 420ms var(--ease-out) backwards;
+}
+
+/* 주워 든 것처럼. 아래에서 살짝 올라오며 각도가 잡힌다. */
+@keyframes pickUp {
+  from { opacity: 0; translate: 0 22px; scale: 0.96; rotate: -2.4deg; }
+  to   { opacity: 1; translate: 0 0;    scale: 1;    rotate: -0.4deg; }
+}
+
+.meta {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-wide);
+  color: #7a6f5c;
+  font-variant-numeric: tabular-nums;
+}
+.meta b { color: #241f18; font-size: var(--text-sm); }
+
+/* 그림. currentColor 로만 그려져 있어서 여기서 색이 정해진다. */
+.motif {
+  margin: var(--space-4) auto var(--space-3);
+  width: min(13rem, 62%);
+  color: #4a3f2e;
+  opacity: 0.9;
+}
+.motif svg { width: 100%; height: auto; display: block; }
+
+/* 어둠 속에서 본 그 한 줄. 카드에서 다시 만나 연결된다. */
+.riddle {
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+  color: #6b6151;
+  font-style: italic;
+}
+
+.name {
+  margin-top: var(--space-2);
+  font-size: var(--text-2xl);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  color: #1c1810;
+}
+
+.what {
+  margin: var(--space-4) auto 0;
+  max-width: 40ch;
+  font-size: var(--text-sm);
+  line-height: var(--leading-loose);
+  color: #3b3428;
+}
+
+.why {
+  margin: var(--space-3) auto 0;
+  max-width: 40ch;
+  padding-top: var(--space-3);
+  border-top: 1px solid #00000018;
+  font-size: var(--text-sm);
+  line-height: var(--leading-loose);
+  color: #6b6151;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  justify-content: center;
+  margin-top: var(--space-6);
+}
+
+.go, .close {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-6);
+  font-size: var(--text-sm);
+  letter-spacing: var(--tracking-wide);
+  text-decoration: none;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out),
+              color var(--duration-fast) var(--ease-out);
+}
+
+.go {
+  background: #241f18;
+  color: #f0e9da;
+  border: 1px solid #241f18;
+}
+.go:hover { background: #3d3527; }
+
+.close {
+  background: transparent;
+  color: #6b6151;
+  border: 1px solid #00000026;
+}
+.close:hover { color: #241f18; border-color: #00000055; }
+
+/* 초점 테두리는 종이 위에서도 보여야 한다.
+   방의 청록을 그대로 쓰면 종이 위에서 흐리다 — 여기선 어두운 색으로. */
+.go:focus-visible, .close:focus-visible {
+  outline: 2px solid #241f18;
+  outline-offset: 3px;
+}
+
+.close kbd {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  padding: 1px 5px;
+  border: 1px solid #00000030;
+  border-radius: var(--radius-sm);
+}
+
+/* 주소를 적어 둔다 — 어디로 가는지 모르고 누르게 하지 않는다. */
+.url {
+  margin-top: var(--space-4);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: #8a7f6b;
+  word-break: break-all;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .backdrop, .card { animation: none; }
+  .card { rotate: 0deg; }
+}

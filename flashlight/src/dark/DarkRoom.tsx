@@ -1,13 +1,15 @@
 import { useRef } from 'react'
-import { PROPS, SECRETS } from './room'
+import { PROPS, SITES } from './sites'
 import { useDarkRoom } from './useDarkRoom'
+import ClueCard from './ClueCard'
 import Landing from '../landing/Landing'
 import s from './darkRoom.module.css'
 
 /* ============================================================
    층 구조가 이 페이지의 전부다.
 
-     4  안내·알림·숫자판   언제나 보인다
+     8  단서 카드          찾는 즉시. 닫아야 다음으로 간다
+     4  안내·숫자판        언제나 보인다
      3  찾아낸 것          ★ 어둠 **위**로 올라온다 = 다시 안 어두워진다
      2  어둠 (WebGL)       빛이 닿은 만큼만 뚫린다
      1  아직 못 찾은 것 · 빛을 막는 물건
@@ -19,9 +21,9 @@ import s from './darkRoom.module.css'
 
 export default function DarkRoom() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const { found, phase, idle, failed, total } = useDarkRoom(canvasRef)
+  const { found, phase, idle, failed, openClue, closeClue, total } = useDarkRoom(canvasRef)
   const foundSet = new Set(found)
-  const last = found.length ? SECRETS.find((x) => x.id === found[found.length - 1]) : null
+  const clue = openClue ? SITES.find((x) => x.id === openClue) : null
 
   /* ⚠️ 랜딩은 방 **밖**에 둔다.
      방은 position: fixed + overflow: hidden 이다 (화면 한 장짜리 어둠).
@@ -43,7 +45,7 @@ export default function DarkRoom() {
         />
       ))}
 
-      {SECRETS.map((sec) => (
+      {SITES.map((sec) => (
         <article
           key={sec.id}
           data-secret={sec.id}
@@ -51,8 +53,8 @@ export default function DarkRoom() {
           data-align={sec.align ?? 'center'}
           style={{ left: `${sec.x * 100}%`, top: `${sec.y * 100}%` }}
         >
-          <p className={s.line}>{sec.line}</p>
-          {sec.sub && <p className={s.sub}>{sec.sub}</p>}
+          <p className={s.line}>{sec.riddle}</p>
+          {sec.hint && <p className={s.sub}>{sec.hint}</p>}
           {/* 비추고 있는 동안 차오르는 테두리. --dwell 은 매 프레임 JS 가 쓴다. */}
           <span className={s.dwellRing} aria-hidden="true" />
         </article>
@@ -71,35 +73,14 @@ export default function DarkRoom() {
           <p className={s.introKicker}>쓸모없지만 화려하죠? · 02</p>
           <h1 className={s.introTitle}>어둠 속 손전등</h1>
           <p className={s.introBody}>
-            커서가 손전등입니다. 이 방에 여덟 조각의 글이 숨어 있습니다.
+            커서가 손전등입니다. 이 방에 단서 여덟 개가 숨어 있습니다.
           </p>
           <ul className={s.introRules}>
             <li>비춘 자리는 <b>잠시 남았다 흐려집니다</b></li>
-            <li>글 하나를 <b>0.5초쯤 비추면</b> 발견됩니다</li>
-            <li>찾은 것은 <b>영영 밝은 채로</b> 남습니다</li>
+            <li>단서를 <b>0.5초쯤 비추면</b> 발견됩니다</li>
+            <li>찾으면 그것이 가리키는 <b>웹사이트가 열립니다</b></li>
           </ul>
           <p className={s.introGo}>마우스를 움직이세요</p>
-        </div>
-      )}
-
-      {/* ---------- 발견 알림 ----------
-          찾은 순간을 알려 주고, 방금 찾은 조각을 한 번 더 보여 준다.
-          어둠 속에서 스쳐 읽은 글을 놓쳤을 수 있으므로. */}
-      {last && phase === 'hunting' && (
-        <div key={last.id} className={s.toast} role="status">
-          {/* 튀어서 번지는 물감. 상자가 아니라 얼룩이라 모서리가 없다. */}
-          <span className={s.splat} aria-hidden="true" />
-          <p className={s.toastTag}>FOUND</p>
-          <p className={s.toastCount}>
-            <b>{String(found.length).padStart(2, '0')}</b>
-            <i>/ {String(total).padStart(2, '0')}</i>
-          </p>
-          <p className={s.toastLine}>{last.line}</p>
-          {last.sub && <p className={s.toastSub}>{last.sub}</p>}
-          {found.length === 1 && (
-            <p className={s.toastNote}>찾은 것은 계속 밝습니다. 나머지 일곱을 찾으면 불이 켜집니다.</p>
-          )}
-          {found.length === total - 1 && <p className={s.toastNote}>하나 남았습니다.</p>}
         </div>
       )}
 
@@ -108,7 +89,7 @@ export default function DarkRoom() {
           <b>{found.length}</b> / {total}
         </span>
         <span className={s.dots} aria-hidden="true">
-          {SECRETS.map((sec) => (
+          {SITES.map((sec) => (
             <i key={sec.id} className={foundSet.has(sec.id) ? s.dotOn : s.dot} />
           ))}
         </span>
@@ -116,7 +97,8 @@ export default function DarkRoom() {
 
       {/* 화면 낭독기·검색엔진용. 어둠은 그림일 뿐이고 글은 처음부터 다 있다. */}
       <p className={s.sr}>
-        어두운 방에 여덟 조각의 글이 숨겨져 있다. 마우스가 손전등이다.
+        어두운 방에 단서 여덟 개가 숨겨져 있다. 마우스가 손전등이다.
+        찾으면 그 단서가 가리키는 웹사이트가 카드로 열린다.
         찾은 것: {found.length} / {total}.
       </p>
 
@@ -127,6 +109,15 @@ export default function DarkRoom() {
       )}
 
       {phase !== 'hunting' && <div className={s.flash} aria-hidden="true" />}
+
+      {clue && (
+        <ClueCard
+          site={clue}
+          index={found.length}
+          total={total}
+          onClose={closeClue}
+        />
+      )}
 
       {/* 잉크 얼룩의 들쭉날쭉한 가장자리.
           feTurbulence 로 잡음을 만들고 feDisplacementMap 으로 그 잡음만큼
@@ -145,14 +136,6 @@ export default function DarkRoom() {
             xChannelSelector="R" yChannelSelector="G" />
         </filter>
 
-        {/* 튄 물감. 잉크보다 잡음이 곱고 세게 민다 —
-            천천히 스며든 얼룩이 아니라 던져서 부딪힌 자국이라서. */}
-        <filter id="splatEdge" x="-40%" y="-40%" width="180%" height="180%"
-          colorInterpolationFilters="sRGB">
-          <feTurbulence type="fractalNoise" baseFrequency="0.021" numOctaves="3" seed="4" result="n" />
-          <feDisplacementMap in="SourceGraphic" in2="n" scale="34"
-            xChannelSelector="R" yChannelSelector="G" />
-        </filter>
       </svg>
     </div>
 

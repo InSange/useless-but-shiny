@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import { FIND_SECONDS, PROPS, SECRETS } from './room'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { FIND_SECONDS, PROPS, SITES } from './sites'
 import { createRenderer, type PropBox } from './gl/renderer'
 
 /* ============================================================
@@ -73,19 +73,26 @@ function cssRgb(name: string): [number, number, number] {
    화면이 한 번 번쩍인다. 처음 상태를 만들 때 바로 정하면 그럴 일이 없다. */
 function preFound() {
   const n = Number(new URLSearchParams(location.search).get('found') ?? 0)
-  return SECRETS.slice(0, Math.max(0, Math.min(SECRETS.length, n))).map((s) => s.id)
+  return SITES.slice(0, Math.max(0, Math.min(SITES.length, n))).map((s) => s.id)
 }
 
 export function useDarkRoom(canvasRef: React.RefObject<HTMLCanvasElement | null>) {
   const [found, setFound] = useState<string[]>(preFound)
   const [phase, setPhase] = useState<Phase>(() =>
-    preFound().length >= SECRETS.length ? 'revealed' : 'hunting')
+    preFound().length >= SITES.length ? 'revealed' : 'hunting')
   /** 아직 한 번도 안 움직였나 — 안내를 띄울지 정한다 */
   const [idle, setIdle] = useState(true)
   const [failed, setFailed] = useState<string | null>(null)
+  /** 지금 펼쳐 놓은 단서. 이게 있는 동안 사냥이 멈춘다.
+      ?clue=N 으로 N 번째 카드를 바로 펼친다 — 카드를 손보려면 필요하다. */
+  const [openClue, setOpenClue] = useState<string | null>(() => {
+    const n = Number(new URLSearchParams(location.search).get('clue') ?? 0)
+    return n >= 1 && n <= SITES.length ? SITES[n - 1].id : null
+  })
+  const pausedRef = useRef(false)
 
   const foundRef = useRef<Set<string>>(new Set(preFound()))
-  const phaseRef = useRef<Phase>(preFound().length >= SECRETS.length ? 'revealed' : 'hunting')
+  const phaseRef = useRef<Phase>(preFound().length >= SITES.length ? 'revealed' : 'hunting')
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -225,9 +232,13 @@ export function useDarkRoom(canvasRef: React.RefObject<HTMLCanvasElement | null>
         }
       }
 
-      // --- 발견 판정 ---
-      if (phaseRef.current === 'hunting') {
-        for (const s of SECRETS) {
+      /* --- 발견 판정 ---
+         ⚠️ 카드가 떠 있는 동안은 건너뛴다.
+         안 그러면 카드 뒤에서 손전등이 제멋대로 다음 것을 발견해
+         카드가 겹쳐 뜬다. 잔상은 계속 흐려지게 두어도 되지만
+         "찾는 일"은 사람이 화면을 보고 있을 때만 일어나야 한다. */
+      if (phaseRef.current === 'hunting' && !pausedRef.current) {
+        for (const s of SITES) {
           if (foundRef.current.has(s.id)) continue
           const px = s.x * W, py = s.y * H
           const lit = attenAt(px, py)
@@ -242,12 +253,12 @@ export function useDarkRoom(canvasRef: React.RefObject<HTMLCanvasElement | null>
           if (dwell.get(s.id)! >= FIND_SECONDS) {
             foundRef.current.add(s.id)
             setFound([...foundRef.current])
+            pausedRef.current = true          // 카드가 뜬다 → 사냥 정지
+            setOpenClue(s.id)
+            break                             // 한 프레임에 둘을 찾지 않는다
           }
         }
-        if (foundRef.current.size === SECRETS.length) {
-          phaseRef.current = 'flash'
-          setPhase('flash')
-        }
+
       }
 
       // --- 마무리: 빛이 세지고 어둠이 걷힌다 ---
@@ -291,7 +302,18 @@ export function useDarkRoom(canvasRef: React.RefObject<HTMLCanvasElement | null>
     }
   }, [canvasRef])
 
-  return { found, phase, idle, failed, total: SECRETS.length }
+  /* 카드를 닫으면 사냥이 다시 돈다. 마지막 하나였으면 그때 불이 켜진다 —
+     카드를 읽는 도중에 화면이 하얘지면 읽던 것을 뺏기는 셈이다. */
+  const closeClue = useCallback(() => {
+    setOpenClue(null)
+    pausedRef.current = false
+    if (foundRef.current.size >= SITES.length) {
+      phaseRef.current = 'flash'
+      setPhase('flash')
+    }
+  }, [])
+
+  return { found, phase, idle, failed, openClue, closeClue, total: SITES.length }
 }
 
 export type { Ctx }

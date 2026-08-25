@@ -56,19 +56,44 @@
   counter-reset: n;
 }
 .lines li {
-  font-size: var(--text-xl);
-  line-height: var(--leading-snug);
-  color: var(--color-text);
   animation: fade var(--duration-slow) var(--ease-out) both;
   animation-delay: calc(1100ms + var(--i) * 90ms);
 }
-.lines li::before {
+.lines a {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr);
+  gap: var(--space-2) var(--space-4);
+  align-items: baseline;
+  padding: var(--space-3) var(--space-4);
+  margin-left: calc(var(--space-4) * -1);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+.lines a:hover { background: #ffffff08; }
+.lines a:focus-visible { outline: 2px solid var(--color-beam); outline-offset: 2px; }
+
+.lines a::before {
   counter-increment: n;
   content: counter(n, decimal-leading-zero);
-  margin-right: var(--space-4);
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   color: var(--color-beam);
+}
+.lines b {
+  font-size: var(--text-xl);
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-tight);
+  font-weight: var(--weight-medium);
+  color: var(--color-text);
+}
+.lines a:hover b { color: var(--color-beam-hot); }
+/* 설명은 이름 아래, 숫자 칸을 건너뛰고 */
+.lines span {
+  grid-column: 2;
+  font-size: var(--text-sm);
+  line-height: var(--leading-loose);
+  color: var(--color-dim);
 }
 @keyframes fade { from { opacity: 0 } to { opacity: 1 } }
 
