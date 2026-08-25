@@ -87,9 +87,10 @@ export default function DarkRoom() {
           어둠 속에서 스쳐 읽은 글을 놓쳤을 수 있으므로. */}
       {last && phase === 'hunting' && (
         <div key={last.id} className={s.toast} role="status">
-          <span className={s.toastBar} aria-hidden="true" />
+          {/* 튀어서 번지는 물감. 상자가 아니라 얼룩이라 모서리가 없다. */}
+          <span className={s.splat} aria-hidden="true" />
+          <p className={s.toastTag}>FOUND</p>
           <p className={s.toastCount}>
-            <span className={s.toastTag}>FOUND</span>
             <b>{String(found.length).padStart(2, '0')}</b>
             <i>/ {String(total).padStart(2, '0')}</i>
           </p>
@@ -141,6 +142,15 @@ export default function DarkRoom() {
           colorInterpolationFilters="sRGB">
           <feTurbulence type="fractalNoise" baseFrequency="0.006" numOctaves="4" seed="11" result="n" />
           <feDisplacementMap in="SourceGraphic" in2="n" scale="46"
+            xChannelSelector="R" yChannelSelector="G" />
+        </filter>
+
+        {/* 튄 물감. 잉크보다 잡음이 곱고 세게 민다 —
+            천천히 스며든 얼룩이 아니라 던져서 부딪힌 자국이라서. */}
+        <filter id="splatEdge" x="-40%" y="-40%" width="180%" height="180%"
+          colorInterpolationFilters="sRGB">
+          <feTurbulence type="fractalNoise" baseFrequency="0.021" numOctaves="3" seed="4" result="n" />
+          <feDisplacementMap in="SourceGraphic" in2="n" scale="34"
             xChannelSelector="R" yChannelSelector="G" />
         </filter>
       </svg>

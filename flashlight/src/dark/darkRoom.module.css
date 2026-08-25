@@ -355,90 +355,190 @@
   /* ⚠️ 위쪽 가운데에 뒀다가 숨긴 글 하나를 정통으로 가렸다.
      방금 찾은 것을 알림이 가리면 최악이다.
      아래 오른쪽은 비어 있고, 왼쪽 숫자판과 짝이 맞는다. */
-  right: var(--space-8); bottom: var(--space-8);
-  width: min(23rem, calc(100vw - var(--space-16)));
-  padding: var(--space-4) var(--space-6) var(--space-4) var(--space-8);
+  right: var(--space-16); bottom: var(--space-12);
+  width: min(21rem, calc(100vw - var(--space-16)));
+  padding: var(--space-6) var(--space-8);
+  text-align: center;
   pointer-events: none;
+}
+
+/* ---------- 튄 물감 ----------
+   상자가 아니라 얼룩이다. 모서리를 깎은 계기판으로 만들었다가
+   "방 위에 붙인 스티커"처럼 보여서 갈아엎었다.
+   던져서 부딪힌 자국은 경계가 없고, 튄 방울이 둘레에 흩어진다. */
+.splat {
+  position: absolute;
+  /* 화면 밖으로 새지 않게 가로 여유를 줄인다 — 처음엔 -22% 로 뒀다가
+     오른쪽 아래 구석에서 얼룩이 잘렸다. */
+  inset: -38% -12%;
+  z-index: -1;
 
   background:
-    /* 주사선. 아주 옅게 깔아야 "화면"처럼 보이고, 진하면 그냥 줄무늬다 */
-    repeating-linear-gradient(to bottom, #ffffff08 0 1px, transparent 1px 3px),
-    linear-gradient(105deg, #0b1512f2 0%, #070d0bf2 100%);
+    /* 튀어 나간 방울들. 목록 맨 앞이 맨 위에 그려지므로 얼룩 밖으로 보인다.
+       작고 또렷해야 방울이다 — 크고 흐리면 그냥 얼룩의 일부가 된다.
+       거리도 섞는다. 다 같은 거리면 뿌린 게 아니라 테를 두른 것처럼 보인다 */
+    radial-gradient(0.62% 0.75% at 23.7% 36.3%, #a6f5daee 0%, #a6f5daee 55%, #a6f5da00 100%),
+    radial-gradient(0.35% 0.42% at 38.0% 2.3%, #7fe3c4ee 0%, #7fe3c4ee 55%, #7fe3c400 100%),
+    radial-gradient(0.48% 0.58% at 85.6% 59.4%, #4fae9499 0%, #4fae9499 55%, #4fae9400 100%),
+    radial-gradient(0.60% 0.73% at 13.0% 45.9%, #4fae9499 0%, #4fae9499 55%, #4fae9400 100%),
+    radial-gradient(0.45% 0.55% at 69.4% 24.1%, #7fe3c499 0%, #7fe3c499 55%, #7fe3c400 100%),
+    radial-gradient(0.28% 0.34% at 94.0% 65.1%, #a6f5dabb 0%, #a6f5dabb 55%, #a6f5da00 100%),
+    radial-gradient(0.93% 1.14% at 49.5% 79.8%, #4fae94dd 0%, #4fae94dd 55%, #4fae9400 100%),
+    radial-gradient(0.47% 0.57% at 71.3% 65.8%, #7fe3c4dd 0%, #7fe3c4dd 55%, #7fe3c400 100%),
+    radial-gradient(0.73% 0.89% at 73.0% 29.4%, #a6f5daee 0%, #a6f5daee 55%, #a6f5da00 100%),
+    radial-gradient(0.88% 1.08% at 86.3% 34.5%, #7fe3c4ee 0%, #7fe3c4ee 55%, #7fe3c400 100%),
+    radial-gradient(0.27% 0.33% at 87.3% 38.8%, #4fae94dd 0%, #4fae94dd 55%, #4fae9400 100%),
+    radial-gradient(0.92% 1.13% at -4.0% 36.9%, #a6f5dabb 0%, #a6f5dabb 55%, #a6f5da00 100%),
+    radial-gradient(0.31% 0.38% at 112.4% 38.2%, #4fae9499 0%, #4fae9499 55%, #4fae9400 100%),
+    radial-gradient(0.40% 0.48% at 1.3% 34.3%, #7fe3c499 0%, #7fe3c499 55%, #7fe3c400 100%),
+    radial-gradient(0.41% 0.50% at 22.0% 81.6%, #a6f5dabb 0%, #a6f5dabb 55%, #a6f5da00 100%),
+    radial-gradient(0.33% 0.40% at 4.7% 31.4%, #4fae9499 0%, #4fae9499 55%, #4fae9400 100%),
+    radial-gradient(0.84% 1.02% at 31.6% 70.2%, #4fae94dd 0%, #4fae94dd 55%, #4fae9400 100%),
+    radial-gradient(0.24% 0.29% at 5.5% 47.2%, #4fae94bb 0%, #4fae94bb 55%, #4fae9400 100%),
+    radial-gradient(0.82% 1.00% at 36.2% 70.3%, #a6f5daee 0%, #a6f5daee 55%, #a6f5da00 100%),
+    radial-gradient(0.89% 1.09% at 76.1% 71.1%, #4fae9499 0%, #4fae9499 55%, #4fae9400 100%),
+    radial-gradient(0.57% 0.70% at 42.9% 95.0%, #4fae9499 0%, #4fae9499 55%, #4fae9400 100%),
+    radial-gradient(0.74% 0.90% at 54.0% 89.5%, #7fe3c4dd 0%, #7fe3c4dd 55%, #7fe3c400 100%),
+    radial-gradient(0.84% 1.02% at 6.9% 74.1%, #4fae94ee 0%, #4fae94ee 55%, #4fae9400 100%),
+    radial-gradient(0.57% 0.70% at 11.6% 64.9%, #4fae94dd 0%, #4fae94dd 55%, #4fae9400 100%),
+    radial-gradient(0.28% 0.34% at 14.3% 25.8%, #4fae94ee 0%, #4fae94ee 55%, #4fae9400 100%),
+    radial-gradient(0.25% 0.31% at 104.6% 71.7%, #7fe3c499 0%, #7fe3c499 55%, #7fe3c400 100%),
+    radial-gradient(0.64% 0.78% at 83.0% 74.1%, #a6f5daee 0%, #a6f5daee 55%, #a6f5da00 100%),
+    radial-gradient(0.82% 1.00% at 32.6% 67.0%, #a6f5daee 0%, #a6f5daee 55%, #a6f5da00 100%),
+    radial-gradient(0.62% 0.76% at 19.6% 37.6%, #a6f5daee 0%, #a6f5daee 55%, #a6f5da00 100%),
+    radial-gradient(0.80% 0.97% at 27.2% 76.3%, #a6f5dadd 0%, #a6f5dadd 55%, #a6f5da00 100%),
+    radial-gradient(0.94% 1.14% at 79.4% 55.2%, #a6f5daee 0%, #a6f5daee 55%, #a6f5da00 100%),
+    radial-gradient(0.51% 0.62% at 70.1% 33.3%, #a6f5dabb 0%, #a6f5dabb 55%, #a6f5da00 100%),
+    radial-gradient(0.46% 0.57% at 56.8% 79.2%, #7fe3c4ee 0%, #7fe3c4ee 55%, #7fe3c400 100%),
+    radial-gradient(0.83% 1.02% at 43.8% 72.1%, #4fae94dd 0%, #4fae94dd 55%, #4fae9400 100%),
+    radial-gradient(0.49% 0.60% at 89.8% 88.7%, #7fe3c499 0%, #7fe3c499 55%, #7fe3c400 100%),
+    radial-gradient(0.45% 0.54% at 82.1% 65.3%, #a6f5daee 0%, #a6f5daee 55%, #a6f5da00 100%),
+    radial-gradient(0.75% 0.91% at 1.6% 20.5%, #4fae94ee 0%, #4fae94ee 55%, #4fae9400 100%),
+    radial-gradient(0.57% 0.70% at 24.1% 58.3%, #a6f5daee 0%, #a6f5daee 55%, #a6f5da00 100%),
+    radial-gradient(0.44% 0.53% at 92.8% 63.8%, #a6f5dabb 0%, #a6f5dabb 55%, #a6f5da00 100%),
+    radial-gradient(0.64% 0.78% at -10.6% 63.8%, #a6f5da99 0%, #a6f5da99 55%, #a6f5da00 100%),
+    radial-gradient(0.41% 0.50% at 22.3% 66.0%, #7fe3c4ee 0%, #7fe3c4ee 55%, #7fe3c400 100%),
+    radial-gradient(0.53% 0.65% at 10.1% 56.4%, #4fae94dd 0%, #4fae94dd 55%, #4fae9400 100%),
+    radial-gradient(0.45% 0.55% at -10.3% 36.1%, #7fe3c4ee 0%, #7fe3c4ee 55%, #7fe3c400 100%),
+    radial-gradient(0.91% 1.11% at 30.9% 69.6%, #4fae9499 0%, #4fae9499 55%, #4fae9400 100%),
+    /* 한가운데 가장 진한 곳 */
+    radial-gradient(24% 28% at 47% 49%,
+      #22876f 0%, #1b6d5a 45%, #1b6d5a00 100%),
+    /* 중심에서 벗어난 두 번째 덩어리 — 완벽한 원이면 물감이 아니다 */
+    radial-gradient(33% 39% at 64% 36%,
+      #135446f0 0%, #135446a0 62%, #13544600 100%),
+    /* 본체. 절반까지는 거의 꽉 찬 색이다가 바깥에서 빠르게 빠진다 —
+       완만하게 빠지면 덩어리가 아니라 안개가 된다 */
+    radial-gradient(49% 54% at 46% 52%,
+      #12513f 0%,
+      #10453afa 42%,
+      #0d382ee0 62%,
+      #0a2a2385 78%,
+      #071c1730 90%,
+      #071c1700 100%);
 
-  /* 모서리를 비스듬히 깎는다. 사각형이면 알림 창이고,
-     깎으면 게임 화면의 계기판처럼 보인다. */
-  clip-path: polygon(
-    0 0,
-    calc(100% - 16px) 0,
-    100% 16px,
-    100% 100%,
-    16px 100%,
-    0 calc(100% - 16px)
-  );
+  /* blur 를 거의 안 준다. 흐리면 방울이 뭉개져 안개가 된다 —
+     실제로 3px 만 줬는데도 초록 안개가 됐다.
+     가장자리의 불규칙함은 흐림이 아니라 변위 필터가 만든다. */
+  filter: url(#splatEdge) blur(1px);
 
-  animation: toastIn 4.2s var(--ease-out) both;
+  /* ⚠️ 그라데이션 정지점이 아니라 scale 을 움직인다.
+     정지점을 애니메이션하면 매 프레임 변위 필터를 다시 돌린다. */
+  will-change: transform, opacity;
+  animation: splat 4.2s var(--ease-out) both;
 }
 
-/* 왼쪽 강조 막대. clip-path 가 테두리를 잘라 먹으므로 테두리 대신 이걸 쓴다. */
-.toastBar {
+/* 얼룩 안쪽의 결.
+   매끈한 그라데이션만 겹치면 물감이 아니라 조명처럼 보인다.
+   실제 물감은 두께가 고르지 않아 얼룩덜룩하다.
+   ⚠️ 부모의 filter 가 이 자식에게도 적용되므로 결까지 같이 밀린다 — 그게 낫다. */
+.splat::after {
+  content: '';
   position: absolute;
-  left: 0; top: 0; bottom: 16px;
-  width: 3px;
-  background: linear-gradient(to bottom, var(--color-found), #ffffff00);
-  box-shadow: 0 0 12px var(--color-found);
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='t'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.055' numOctaves='4'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23t)'/%3E%3C/svg%3E");
+  /* 결이 얼룩 밖으로 새지 않게 같은 모양으로 오려 낸다 */
+  mask-image: radial-gradient(49% 54% at 46% 52%, #000 0%, #000c 52%, #0000 88%);
+  -webkit-mask-image: radial-gradient(49% 54% at 46% 52%, #000 0%, #000c 52%, #0000 88%);
+  mix-blend-mode: overlay;
+  opacity: 0.55;
 }
 
-/* 들어왔다 머물렀다 나간다. 한 애니메이션 안에서 세 구간으로 나눈다 —
-   따로 만들면 나가는 시점을 자바스크립트가 세야 한다. */
-@keyframes toastIn {
-  0%       { opacity: 0; translate: 16px 0; }
-  6%, 78%  { opacity: 1; translate: 0 0; }
-  100%     { opacity: 0; translate: 8px 0; }
+/* 던진 것은 한 번에 퍼지고 살짝 되튄다. 천천히 커지면 물감이 아니라 풍선이다. */
+@keyframes splat {
+  0%       { scale: 0.42; opacity: 0; }
+  9%       { scale: 1.09; opacity: 1; }
+  18%      { scale: 0.98; }
+  26%, 78% { scale: 1;    opacity: 1; }
+  100%     { scale: 1.04; opacity: 0; }
+}
+
+/* 글은 물감이 튄 **뒤에** 뜬다 */
+.toastTag, .toastCount, .toastLine, .toastSub, .toastNote {
+  animation: toastText 4.2s var(--ease-out) both;
+}
+.toastTag   { animation-delay: 60ms; }
+.toastCount { animation-delay: 110ms; }
+.toastLine  { animation-delay: 210ms; }
+.toastSub   { animation-delay: 280ms; }
+.toastNote  { animation-delay: 340ms; }
+
+@keyframes toastText {
+  0%       { opacity: 0; translate: 0 6px; }
+  8%, 78%  { opacity: 1; translate: 0 0; }
+  100%     { opacity: 0; }
+}
+
+.toastTag {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-wider);   /* 로마자라 넓게 벌려도 된다 */
+  color: var(--color-found);
+  opacity: 0.75;
 }
 
 .toastCount {
   display: flex;
   align-items: baseline;
+  justify-content: center;
   gap: var(--space-2);
+  margin-top: var(--space-1);
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  letter-spacing: var(--tracking-wide);
-  color: var(--color-dim);
-}
-.toastTag {
-  padding: 1px var(--space-2);
-  background: var(--color-found);
-  color: #04100c;
-  font-weight: var(--weight-bold);
-  letter-spacing: var(--tracking-wide);
-}
-.toastCount b {
-  font-size: var(--text-lg);
-  line-height: 1;
-  color: var(--color-found);
   font-variant-numeric: tabular-nums;
 }
-.toastCount i { font-style: normal; }
+.toastCount b {
+  font-size: var(--text-3xl);
+  line-height: 1;
+  font-weight: var(--weight-bold);
+  color: var(--color-beam-hot);
+  text-shadow: 0 0 22px #7fe3c47a;
+}
+.toastCount i {
+  font-style: normal;
+  font-size: var(--text-sm);
+  color: var(--color-found);
+  opacity: 0.7;
+}
 
 .toastLine {
-  margin-top: var(--space-2);
-  font-size: var(--text-lg);
+  margin-top: var(--space-3);
+  font-size: var(--text-md);
   line-height: var(--leading-snug);
   letter-spacing: var(--tracking-tight);
   color: var(--color-beam-hot);
 }
+/* 얼룩 위에 올라가므로 --color-dim(어두운 방 기준)으로는 안 읽힌다.
+   글자 색은 "무엇 위에 놓이는지"까지 보고 정해야 한다. */
 .toastSub {
   margin-top: var(--space-1);
-  font-size: var(--text-sm);
-  color: var(--color-dim);
+  font-size: var(--text-xs);
+  color: #b6ddd0;
 }
 .toastNote {
   margin-top: var(--space-3);
-  padding-top: var(--space-3);
-  border-top: 1px solid #1c2320;
   font-size: var(--text-xs);
   line-height: var(--leading-loose);
-  color: var(--color-dim);
+  color: #9cc7bb;
 }
 
 /* ---------- 마무리: 빛이 화면을 삼킨다 ---------- */
